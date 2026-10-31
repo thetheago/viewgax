@@ -1,0 +1,717 @@
+// Arquitetura Fortime — todos os sistemas e como conversam.
+// Levantado do código (backend, punch_register, clock_wise, facial-api, web_agent) em 2026-10-28.
+// Abra com a extensão LikeC4 do VS Code ou `npx likec4 start` nesta pasta.
+
+specification {
+  element actor {
+    style {
+      shape person
+      color green
+    }
+  }
+  element system
+  element external {
+    style {
+      color muted
+    }
+  }
+  element service
+  element worker {
+    style {
+      color indigo
+    }
+  }
+  element ui {
+    style {
+      shape browser
+    }
+  }
+  element mobile {
+    style {
+      shape mobile
+    }
+  }
+  element database {
+    style {
+      shape storage
+      color slate
+    }
+  }
+  element broker {
+    style {
+      shape queue
+      color amber
+    }
+  }
+  element queue {
+    style {
+      shape queue
+      color amber
+    }
+  }
+  element bucket {
+    style {
+      shape storage
+      color secondary
+    }
+  }
+
+  relationship http {
+    color primary
+    line solid
+  }
+  relationship async {
+    color amber
+    line dashed
+  }
+  relationship db {
+    color gray
+    line dotted
+  }
+
+  tag fiscal
+  tag webhook
+  tag agente
+  tag calculo
+  tag openQuestion
+}
+
+model {
+
+  // ───────────────────────── Pessoas ─────────────────────────
+  colaborador = actor 'Colaborador' {
+    icon bootstrap:person
+    description 'Bate o ponto (web, app single, app multi, relógio)'
+  }
+  gestor = actor 'Gestor / RH' {
+    icon bootstrap:people
+    description 'Usa o painel: espelho, ajustes, importação de AFD, configurações'
+  }
+
+  // ───────────────────────── Canais de batida ─────────────────────────
+  canais = system 'Canais de batida' {
+    icon bootstrap:phone
+    description 'Por onde a batida nasce'
+
+    painel = ui 'Painel Web' {
+      icon tech:react
+      technology 'React + Vite'
+      description 'Ponto web do colaborador e operação do RH'
+    }
+    appSingle = mobile 'App Single' {
+      icon bootstrap:phone
+      technology 'Mobile'
+    }
+    appMulti = mobile 'App Multi' {
+      icon bootstrap:tablet
+      technology 'Mobile (quiosque)'
+    }
+    relogio = system 'Relógio de ponto (REP)' {
+      icon bootstrap:stopwatch
+      description 'Equipamento físico; REP-C tem AFD próprio'
+    }
+  }
+
+  // ───────────────────────── Agentes (relógios) ─────────────────────────
+  webAgent = system 'Agente de integração' {
+    icon bootstrap:router
+
+    agent = service 'Web Agent' {
+      icon tech:dotnet
+      technology '.NET 9 — instalado no cliente'
+      description 'Lê o AFD dos relógios na rede local'
+    }
+    hub = service 'HUB' {
+      icon tech:dotnet
+      technology '.NET 9 — SignalR / MassTransit'
+      description 'Ponte entre o backend (RabbitMQ) e os agentes (SignalR)'
+    }
+    legacyAgent = service 'Agente legado' {
+      icon bootstrap:hdd
+      technology 'POST /api/integrations/time/cards'
+      description 'Ainda manda por HTTP; o monólito republica na mesma routing key do hub'
+    }
+  }
+
+  // ───────────────────────── Fortime (monólito) ─────────────────────────
+  fortime = system 'Fortime' {
+    icon bootstrap:building
+    description 'Monólito. Dono do schema dos bancos de ponto.'
+
+    backend = service 'Monólito (backend)' {
+      icon tech:laravel
+      technology 'Laravel 11 / PHP 8.3'
+      description '
+        API principal. Duas implantações do mesmo código:
+        fortime (tenancy off) e tenants (stancl, DB por tenant).
+        Distribui as URLs do punch_register via feature flag.
+      '
+    }
+    reverb = service 'Reverb' {
+      icon tech:websocket
+      technology 'Laravel Reverb (WSS :8989)'
+      description 'Tempo real para o painel'
+    }
+    cwConnector = service 'cw-connector' {
+      icon tech:php
+      technology 'PHP lib'
+      description 'Cliente HTTP do clock_wise: envia lote, consulta status e resultado'
+    }
+    postgresAudit = database 'Postgres — auditoria' {
+      icon tech:postgresql
+      technology 'Postgres 16 + pg_partman'
+    }
+  }
+
+  // ───────────────────────── Microsserviços ─────────────────────────
+  punchRegister = system 'punch_register' {
+    icon bootstrap:fingerprint
+    technology 'Hyperf 3.1 / Swoole'
+    description 'Registro de ponto: persiste, reconcilia o dia, pede o cálculo e gera a linha fiscal do AFD'
+
+    api = service 'API /point/*' {
+      icon tech:php
+      technology 'punch_register · HTTP :9501 — X-Tenant-Id, sem JWT'
+      description '
+        POST /point/web · /point/mobile/single · /point/mobile/multi
+        POST /point/photo · /point/reconcile · /point/afd/pending
+      '
+    }
+    postRegister = worker 'Pós-registro (defer)' {
+      icon bootstrap:cpu
+      technology 'punch_register · defer() no mesmo worker'
+      description '
+        webhook → endereço → solicitação → descarte pós-cálculo → pré-assinalado
+        → dedup → descarte exceção → reorder → ajustes → cálculo do dia → linha AFD
+      '
+    }
+    webhookConsumer = worker 'WebhookConsumer' {
+      icon tech:rabbitmq
+      technology 'punch_register · consumer (1)'
+      description 'Relê a linha e envia o envelope ao cliente. Falha de entrega = ACK, sem DLQ.'
+    }
+    afdLineConsumer = worker 'AfdLineConsumer' {
+      icon tech:rabbitmq
+      technology 'punch_register · consumer (2)'
+      description 'Ponto único da linha fiscal (registro tipo 7). Falha = DROP → DLQ.'
+    }
+    afdImportConsumer = worker 'AfdImportConsumer' {
+      icon tech:rabbitmq
+      technology 'punch_register · consumer (1)'
+      description 'Importa AFD de relógio (AfdImportManager). Resultado em client_import_files. ACK sempre.'
+    }
+    agentPunchesConsumer = worker 'AgentPunchesConsumer' {
+      icon tech:rabbitmq
+      technology 'punch_register · consumer (1)'
+      description 'Único gravador das batidas dos agentes. Grava por pacote, anota no Redis, cursor anda com o lote completo. ACK sempre.'
+    }
+    exceptionCron = worker 'Cron ponto por exceção' {
+      icon bootstrap:clock
+      technology 'punch_register · crontab * * * * *'
+      description 'Materializa batidas agendadas via o mesmo RegisterPointUseCase'
+    }
+    calcPendingCron = worker 'Cron cálculo pendente' {
+      icon bootstrap:clock
+      technology 'punch_register · crontab * * * * *'
+      description 'Republica pedidos de cálculo guardados no Redis (pr:calculate-day:pending) quando o broker volta'
+    }
+  }
+
+  clockWise = system 'clock_wise' {
+    icon bootstrap:calculator
+    technology 'Hyperf / Swoole :9501'
+    description 'Motor de cálculo de horas'
+
+    cwApi = service 'API /batch/*' {
+      icon tech:php
+      technology 'clock_wise · HTTP + OAuth'
+      description 'POST /batch/create, /batch/create-in-queue · GET /batch/find/{id}, /batch/result/{id}'
+    }
+    cwConsumer = worker 'Consumer de cálculo' {
+      #openQuestion
+      icon tech:rabbitmq
+      technology 'clock_wise · consumer'
+      description 'Consome clock-wise.calculate.punch e .system (não está na main local do clock_wise)'
+    }
+  }
+
+  facialApi = system 'facial-api' {
+    icon bootstrap:person-bounding-box
+
+    facialCore = service 'facial-api core' {
+      icon tech:php
+      technology 'Hyperf :9501 + JWT'
+    }
+    deepface = worker 'DeepFace checker' {
+      icon tech:python
+      technology 'Python, TCP socket'
+    }
+  }
+
+  // ───────────────────────── Destinos externos ─────────────────────────
+  clienteIntegrado = external 'Sistema do cliente' {
+    icon bootstrap:globe
+    description 'Recebe o webhook de marcação'
+  }
+  geocoding = external 'Geocoding (HERE / Geoapify / Maps)' {
+    icon bootstrap:geo-alt
+    description 'Endereço reverso da batida, em cadeia de fallback'
+  }
+  smtpRevenda = external 'SMTP da revenda' {
+    icon bootstrap:envelope
+    description 'advanced_resale_config — e-mail de webhook desativado'
+  }
+
+  // ───────────────────────── Infra compartilhada ─────────────────────────
+  infra = system 'Infra compartilhada' {
+    description 'Broker, bancos, cache e bucket usados por mais de um sistema'
+
+    rabbit = broker 'RabbitMQ' {
+      icon tech:rabbitmq
+      technology 'RabbitMQ 3'
+
+      exPunch = queue 'exchange punch-register' {
+        technology 'topic, durable'
+        description 'Publicação com mandatory + confirm: sem fila ligada → UnroutableMessageException'
+      }
+      qWebhook = queue 'punch-register.webhook' {
+        #webhook
+        metadata {
+          routing_key 'punch-register.webhook'
+          payload '{ tenant_id, kind: punch|complement|config_changed, id, global_account_id }'
+          ack 'ACK sempre (falha de entrega conta em webhooks.tries)'
+        }
+      }
+      qAfdLine = queue 'punch-register.afd-line' {
+        #fiscal
+        metadata {
+          routing_key 'punch-register.afd-line'
+          payload '{ tenant_id, point_register_id, client_id }'
+          headers 'correlation_id, traceparent (W3C)'
+          ack 'DROP → x-dead-letter-routing-key punch-register.afd-line.dead'
+        }
+      }
+      qAfdLineDead = queue 'punch-register.afd-line.dead' {
+        #fiscal
+        description 'DLQ — sem dreno automático; reprocesso via /point/afd/pending'
+      }
+      qAfdImport = queue 'punch-register.afd-import' {
+        #fiscal
+        metadata {
+          routing_key 'punch-register.afd-import'
+          payload '{ client_import_file_id, new_afd, filter_client }'
+          ack 'ACK sempre (erro gravado p/ o cliente reenviar pela tela)'
+        }
+      }
+      exCalc = queue 'exchange clock-wise' {
+        #calculo
+        technology 'topic, durable — do clock_wise'
+        description 'Declarada também pelo ConfirmedProducer do punch_register (precisa bater com a do clock_wise)'
+      }
+      qCalcPunch = queue 'clock-wise.calculate.punch' {
+        #calculo
+        metadata {
+          routing_key 'clock-wise.calculate.punch'
+          payload '{ tenant_id, employee_id, global_account_id, day, time_card_hour_id, origin: "punch" }'
+          falha 'sem broker ou sem fila → guarda no Redis e o cron republica'
+        }
+      }
+      qCalcSystem = queue 'clock-wise.calculate.system' {
+        #calculo
+        metadata {
+          routing_key 'clock-wise.calculate.system'
+          payload '{ tenant_id, employee_id, global_account_id, day, origin, correlation_id }'
+        }
+      }
+      exApp = queue 'exchange app-exchange' {
+        #agente
+        technology 'topic — broker do agente'
+        description 'Ida hub-{hubId}-<ação> · volta {prefix}-<ação>-request|response'
+      }
+      qAgentPunches = queue 'punch-register.agent-punches' {
+        #agente
+        technology 'durável'
+        metadata {
+          routing_key '{prefix}-get-punches-response (um binding por prefixo de AMQP_AGENT_QUEUE_PREFIXES)'
+          ack 'ACK sempre, sem DLQ (pacote que falha não anda o cursor; a coleta reenvia)'
+        }
+      }
+    }
+    redis = database 'Redis' {
+      icon tech:redis
+      description 'Locks (SET NX PX), cache de tenant/webhook/geo, lotes do agente, cálculo pendente'
+    }
+    mysqlTenant = database 'MySQL — DB do tenant' {
+      icon tech:mysql
+      description 'time_cards, time_card_hour, saved_calculations, body_tax_file, point_clock… (milhões de linhas)'
+    }
+    mysqlLandlord = database 'MySQL — landlord' {
+      icon tech:mysql
+      description 'tenants, environments (config por tenant)'
+    }
+    r2 = bucket 'Cloudflare R2' {
+      icon tech:cloudflare
+      description 'Fotos da batida (path = contrato do monólito), arquivos de AFD, releases do agente'
+    }
+  }
+
+  // ═════════════════════════ Relações ═════════════════════════
+
+  // Pessoas → canais
+  colaborador -> painel 'bate ponto web'
+  colaborador -> appSingle 'bate ponto'
+  colaborador -> appMulti 'bate ponto (quiosque)'
+  colaborador -> relogio 'bate ponto'
+  gestor -> painel 'opera o painel, sobe AFD'
+
+  // Canais → backend
+  painel -[http]-> backend 'API REST' {
+    technology 'HTTPS + JWT'
+    description 'Inclui as URLs do punch_register por feature flag (FeatureFlagController)'
+  }
+  appSingle -[http]-> backend 'API REST (inclui upload genérico /api/mobile/documents/upload)'
+  appMulti -[http]-> backend 'API REST'
+  painel -[http]-> reverb 'WebSocket' {
+    technology 'WSS'
+  }
+
+  // Canais → punch_register (direto, URL vinda da feature flag)
+  painel -[http]-> punchRegister.api 'POST /point/web, /point/photo' {
+    technology 'HTTP + X-Tenant-Id'
+    description 'Responde 201 logo após persistir; o resto roda no defer'
+  }
+  appSingle -[http]-> punchRegister.api 'POST /point/mobile/single'
+  appMulti -[http]-> punchRegister.api 'POST /point/mobile/multi, /point/photo' {
+    #openQuestion
+    description 'App ainda manda point_records aninhado e sem user_id (pendente)'
+  }
+
+  // Relógios → agente
+  webAgent.agent -[http]-> relogio 'lê o AFD a partir do NSR do cursor' {
+    technology 'HTTP na LAN'
+  }
+  webAgent.hub -[http]-> webAgent.agent 'SignalR (pede batidas, envia colaboradores/relógios)' {
+    technology 'WebSocket + JWT RS256 (emitido pelo backend)'
+  }
+  webAgent.agent -[http]-> webAgent.hub 'pacotes de batidas'
+  webAgent.legacyAgent -[http]-> relogio 'lê batidas'
+  webAgent.legacyAgent -[http]-> backend 'POST /api/integrations/time/cards'
+
+  // Backend → punch_register (HTTP)
+  backend -[http]-> punchRegister.api 'POST /point/reconcile' {
+    description 'Reconciliar o dia depois de ajuste no monólito'
+  }
+  backend -[http]-> punchRegister.api 'POST /point/afd/pending' {
+    #fiscal
+    description 'Gera linhas fiscais pendentes (fallback da fila)'
+  }
+
+  // Backend → RabbitMQ (publisher)
+  backend -[async]-> exPunch 'publica webhook' {
+    #webhook
+    technology 'AMQP mandatory + confirm'
+    metadata {
+      routing_key 'punch-register.webhook'
+      payload '{ tenant_id, kind, id, global_account_id }'
+      filtro 'só publica se a conta tem webhook ativo (exists() sem cache); config_changed sempre'
+    }
+  }
+  backend -[async]-> exPunch 'publica linha fiscal' {
+    #fiscal
+    description 'TimeCardHourObserver, após o commit'
+    metadata {
+      routing_key 'punch-register.afd-line'
+      payload '{ tenant_id, point_register_id, client_id }'
+    }
+  }
+  backend -[async]-> exPunch 'publica importação de AFD' {
+    #fiscal
+    description 'AfdImportDispatcher: manual (tela) ou agendada. Sobe o arquivo no R2 e publica só o id'
+    metadata {
+      routing_key 'punch-register.afd-import'
+      payload '{ client_import_file_id, new_afd, filter_client }'
+    }
+  }
+  backend -[async]-> exCalc 'pede recálculo (Recalculation::enqueue)' {
+    #calculo
+    metadata {
+      routing_key 'clock-wise.calculate.system'
+    }
+  }
+  backend -[async]-> exApp 'comandos para o HUB' {
+    #agente
+    description 'Cron agent:dispatch-scheduled-punches (30 min) pede batidas com o cursor de cada relógio'
+    metadata {
+      routing_keys 'hub-{hubId}-pair-company · hub-{hubId}-add-or-update-employees · hub-{hubId}-add-or-update-devices · hub-{hubId}-get-punches'
+    }
+  }
+  backend -[async]-> exApp 'republica o agente legado' {
+    #agente
+    metadata {
+      routing_key '{prefix}-get-punches-response (lote de 1 pacote)'
+    }
+  }
+
+  // punch_register → RabbitMQ (publisher)
+  punchRegister.postRegister -[async]-> exPunch 'publica webhook (1º passo do defer)' {
+    #webhook
+    metadata {
+      routing_key 'punch-register.webhook'
+      payload '{ tenant_id, kind: punch, id, global_account_id }'
+    }
+  }
+  punchRegister.postRegister -[async]-> exPunch 'publica linha fiscal' {
+    #fiscal
+    description 'Toda batida criada no request cujo SourceType gera NSR (relógio REP-C não)'
+    metadata {
+      routing_key 'punch-register.afd-line'
+      payload '{ tenant_id, point_register_id, client_id }'
+    }
+  }
+  punchRegister.postRegister -[async]-> exCalc 'pede o cálculo do dia' {
+    #calculo
+    description 'Depois de reconciliar, antes da linha AFD. Batida após cálculo bloqueado não publica.'
+    metadata {
+      routing_key 'clock-wise.calculate.punch'
+    }
+  }
+  punchRegister.afdImportConsumer -[async]-> exPunch 'linha fiscal dos pré-assinalados' {
+    #fiscal
+  }
+  punchRegister.afdImportConsumer -[async]-> exCalc 'cálculo dos dias importados' {
+    #calculo
+  }
+  punchRegister.agentPunchesConsumer -[async]-> exPunch 'webhook + linha fiscal (iDFace/iDFlex)' {
+    description 'Relógio REP-C (RELOGIO) não gera linha fiscal do sistema'
+  }
+  punchRegister.agentPunchesConsumer -[async]-> exCalc 'cálculo do dia (1x por cartão)' {
+    #calculo
+  }
+  punchRegister.exceptionCron -[async]-> exCalc 'cálculo do dia (após o commit)' {
+    #calculo
+  }
+  punchRegister.calcPendingCron -[async]-> exCalc 'republica pendentes' {
+    #calculo
+  }
+
+  // Roteamento dentro do broker
+  exPunch -[async]-> qWebhook 'punch-register.webhook'
+  exPunch -[async]-> qAfdLine 'punch-register.afd-line'
+  exPunch -[async]-> qAfdImport 'punch-register.afd-import'
+  qAfdLine -[async]-> qAfdLineDead 'dead-letter'
+  exCalc -[async]-> qCalcPunch 'clock-wise.calculate.punch'
+  exCalc -[async]-> qCalcSystem 'clock-wise.calculate.system'
+  exApp -[async]-> qAgentPunches '{prefix}-get-punches-response'
+
+  // Filas → consumers
+  qWebhook -[async]-> punchRegister.webhookConsumer 'consome'
+  qAfdLine -[async]-> punchRegister.afdLineConsumer 'consome'
+  qAfdImport -[async]-> punchRegister.afdImportConsumer 'consome'
+  qAgentPunches -[async]-> punchRegister.agentPunchesConsumer 'consome'
+  qCalcPunch -[async]-> clockWise.cwConsumer 'consome'
+  qCalcSystem -[async]-> clockWise.cwConsumer 'consome'
+
+  // Agente ↔ broker
+  exApp -[async]-> webAgent.hub 'entrega comandos'
+  webAgent.hub -[async]-> exApp 'respostas' {
+    #agente
+    metadata {
+      routing_keys '{prefix}-pair-company-request · {prefix}-get-punches-response · {prefix}-get-error-logs-response'
+      prefix 'fortime | revendas | hm | slytherin… (QueuePrefixEnum ↔ QueuePrefixes.cs)'
+    }
+  }
+  exApp -[async]-> backend 'pair-company-request, get-error-logs-response' {
+    #agente
+    technology 'rabbitmq:consume-all'
+  }
+
+  // Dentro do punch_register
+  punchRegister.api -> punchRegister.postRegister 'defer() após 201'
+  punchRegister.calcPendingCron -[db]-> redis 'lê pr:calculate-day:pending (HDEL / HSETNX)'
+
+  // punch_register → saídas
+  punchRegister.webhookConsumer -[http]-> clienteIntegrado 'POST envelope { method, url, body{9 campos} }' {
+    #webhook
+    technology 'Guzzle — 3 tentativas, 5s timeout, backoff 0.5s/1s'
+    description 'Esgotou → webhooks.tries++ (WHERE tries < 3); na 3ª desativa e avisa por e-mail'
+  }
+  punchRegister.webhookConsumer -> smtpRevenda 'e-mail: webhook desativado' {
+    #webhook
+  }
+  punchRegister.postRegister -[http]-> geocoding 'endereço reverso'
+  punchRegister.api -[http]-> r2 'PUT foto da batida' {
+    description 'BucketPaths::getDocumentPath + BucketFileNames::date() — contrato com o monólito'
+  }
+  punchRegister.afdImportConsumer -[http]-> r2 'lê e remove o arquivo de AFD'
+
+  // punch_register → dados
+  punchRegister.api -[db]-> mysqlTenant 'INSERT time_card_hour'
+  punchRegister.postRegister -[db]-> mysqlTenant 'reconcilia o dia'
+  punchRegister.afdLineConsumer -[db]-> mysqlTenant 'NSR + hash + body_tax_file (lock 5s)'
+  punchRegister.afdImportConsumer -[db]-> mysqlTenant 'batidas + status em client_import_files'
+  punchRegister.agentPunchesConsumer -[db]-> mysqlTenant 'batidas + cursor point_clock.sequential_nsr'
+  punchRegister.agentPunchesConsumer -[db]-> redis 'anota pacote do lote (RedisAgentBatchTracker)'
+  punchRegister.exceptionCron -[db]-> mysqlTenant 'agendas vencidas (lockForUpdate)'
+  punchRegister -[db]-> mysqlLandlord 'resolve tenant e config (environments)'
+  punchRegister -[db]-> redis 'locks (AFD, assinatura, timecard), cache'
+
+  // Backend → dados
+  backend -[db]-> mysqlTenant 'dono do schema'
+  backend -[db]-> mysqlLandlord 'tenancy (stancl)'
+  backend -[db]-> postgresAudit 'trilha de auditoria'
+  backend -[db]-> redis 'cache, filas Horizon'
+  backend -[http]-> r2 'documentos, AFD, releases do agente'
+
+  // Cálculo
+  backend -[http]-> cwConnector 'usa'
+  cwConnector -[http]-> clockWise.cwApi 'lote síncrono ou em fila'
+  clockWise -[db]-> mysqlTenant 'lê marcações / grava cálculo'
+
+  // Facial
+  backend -[http]-> facialCore 'POST /facialview, /makecache' {
+    technology 'HTTP + JWT'
+  }
+  facialCore -[http]-> deepface 'compara rosto' {
+    technology 'TCP socket'
+  }
+  facialCore -[db]-> redis 'filas async'
+}
+
+views {
+
+  // Esquerda → direita: quem usa → por onde entra → quem processa → onde guarda / quem recebe.
+  view index {
+    title 'Fortime — visão geral'
+
+    group 'Pessoas' {
+      include colaborador, gestor
+    }
+    group 'Entrada' {
+      include canais, webAgent
+    }
+    group 'Sistemas' {
+      include fortime, punchRegister, clockWise, facialApi
+    }
+    group 'Mensageria' {
+      include infra.rabbit
+    }
+    group 'Destinos' {
+      include clienteIntegrado
+    }
+
+    autoLayout LeftRight 160 100
+  }
+
+  view dados {
+    title 'Quem lê e escreve onde'
+    include fortime, punchRegister, clockWise, facialApi
+    include infra.redis, infra.mysqlTenant, infra.mysqlLandlord, infra.r2
+    autoLayout LeftRight 200 80
+  }
+
+  view punch of punchRegister {
+    title 'punch_register — por dentro'
+    include *
+    include colaborador, painel, appSingle, appMulti, backend
+    include infra.rabbit.exPunch, infra.rabbit.qWebhook, infra.rabbit.qAfdLine, infra.rabbit.qAfdLineDead, infra.rabbit.qAfdImport
+    include infra.rabbit.exCalc, infra.rabbit.qAgentPunches
+    include clienteIntegrado, geocoding, smtpRevenda
+    autoLayout LeftRight 120 80
+  }
+
+  view messaging {
+    title 'Mensageria (RabbitMQ)'
+    include infra.rabbit, infra.rabbit.*
+    include -> infra.rabbit.* ->
+    autoLayout LeftRight 160 60
+  }
+
+  view agente of webAgent {
+    title 'Agente de integração'
+    include *, relogio, backend
+    include infra.rabbit.exApp, infra.rabbit.qAgentPunches, punchRegister.agentPunchesConsumer
+    autoLayout LeftRight 120 80
+  }
+
+  dynamic view batidaWeb {
+    title 'Batida web — do clique à linha fiscal'
+    // pais incluídos para cada card aparecer dentro do seu sistema
+    include canais, punchRegister, infra.rabbit, clockWise
+    colaborador -> painel 'clica em bater ponto'
+    painel -> punchRegister.api 'POST /point/photo (opcional)'
+    punchRegister.api -> infra.r2 'grava a foto'
+    painel -> punchRegister.api 'POST /point/web'
+    punchRegister.api -> infra.mysqlTenant 'INSERT time_card_hour'
+    punchRegister.api -> painel '201'
+    punchRegister.api -> punchRegister.postRegister 'defer()'
+    punchRegister.postRegister -> infra.rabbit.exPunch 'punch-register.webhook'
+    punchRegister.postRegister -> geocoding 'endereço'
+    punchRegister.postRegister -> infra.mysqlTenant 'pré-assinalado, dedup, descarte, reorder'
+    punchRegister.postRegister -> infra.rabbit.exCalc 'clock-wise.calculate.punch'
+    punchRegister.postRegister -> infra.rabbit.exPunch 'punch-register.afd-line'
+    infra.rabbit.exCalc -> infra.rabbit.qCalcPunch
+    infra.rabbit.qCalcPunch -> clockWise.cwConsumer 'calcula o dia'
+    infra.rabbit.exPunch -> infra.rabbit.qAfdLine
+    infra.rabbit.qAfdLine -> punchRegister.afdLineConsumer
+    punchRegister.afdLineConsumer -> infra.mysqlTenant 'NSR + hash + body_tax_file (lock 5s)'
+    infra.rabbit.exPunch -> infra.rabbit.qWebhook
+    infra.rabbit.qWebhook -> punchRegister.webhookConsumer
+    punchRegister.webhookConsumer -> clienteIntegrado 'POST envelope'
+    autoLayout LeftRight
+  }
+
+  dynamic view importacaoAfd {
+    title 'Importação de AFD do relógio'
+    // pais incluídos para cada card aparecer dentro do seu sistema
+    include canais, fortime, punchRegister, infra.rabbit
+    gestor -> painel 'sobe o arquivo AFD'
+    painel -> backend 'upload'
+    backend -> infra.r2 'grava o arquivo'
+    backend -> infra.mysqlTenant 'cria client_import_files'
+    backend -> infra.rabbit.exPunch 'punch-register.afd-import'
+    infra.rabbit.exPunch -> infra.rabbit.qAfdImport
+    infra.rabbit.qAfdImport -> punchRegister.afdImportConsumer '{ client_import_file_id, new_afd, filter_client }'
+    punchRegister.afdImportConsumer -> infra.r2 'lê o arquivo'
+    punchRegister.afdImportConsumer -> infra.mysqlTenant 'valida cabeçalho e CNPJ (10%)'
+    punchRegister.afdImportConsumer -> infra.mysqlTenant 'resolve colaboradores (PIS/CPF) e jornadas'
+    punchRegister.afdImportConsumer -> infra.mysqlTenant 'grava batidas + pré-assinalados, reconcilia (25/50/75%)'
+    punchRegister.afdImportConsumer -> infra.rabbit.exPunch 'linha fiscal dos pré-assinalados'
+    punchRegister.afdImportConsumer -> infra.rabbit.exCalc 'cálculo dos dias'
+    punchRegister.afdImportConsumer -> infra.mysqlTenant 'status final + período do AFD'
+    punchRegister.afdImportConsumer -> infra.r2 'apaga o arquivo'
+    painel -> backend 'tela lê o status'
+    autoLayout LeftRight
+  }
+
+  dynamic view coletaAgente {
+    title 'Coleta de batidas pelo agente'
+    // pais incluídos para cada card aparecer dentro do seu sistema
+    include fortime, webAgent, punchRegister, infra.rabbit
+    backend -> infra.rabbit.exApp 'hub-{hubId}-get-punches (cursor de cada relógio)'
+    infra.rabbit.exApp -> webAgent.hub
+    webAgent.hub -> webAgent.agent 'SignalR'
+    webAgent.agent -> relogio 'lê o AFD a partir do NSR'
+    webAgent.agent -> webAgent.hub 'pacotes (1 batch_id por relógio)'
+    webAgent.hub -> infra.rabbit.exApp '{prefix}-get-punches-response'
+    infra.rabbit.exApp -> infra.rabbit.qAgentPunches
+    infra.rabbit.qAgentPunches -> punchRegister.agentPunchesConsumer
+    punchRegister.agentPunchesConsumer -> infra.mysqlTenant 'grava as batidas do pacote'
+    punchRegister.agentPunchesConsumer -> infra.redis 'anota o pacote'
+    punchRegister.agentPunchesConsumer -> infra.mysqlTenant 'lote completo → avança o cursor'
+    punchRegister.agentPunchesConsumer -> infra.rabbit.exPunch 'webhook + linha fiscal'
+    punchRegister.agentPunchesConsumer -> infra.rabbit.exCalc 'cálculo do dia'
+    autoLayout LeftRight
+  }
+
+  dynamic view pontoExcecao {
+    title 'Ponto por exceção (cron)'
+    // pais incluídos para cada card aparecer dentro do seu sistema
+    include punchRegister, infra.rabbit, clockWise
+    punchRegister.exceptionCron -> infra.mysqlTenant 'agendas vencidas (lockForUpdate)'
+    punchRegister.exceptionCron -> infra.mysqlTenant 'cria a batida (EXCEPTION_POINT)'
+    punchRegister.exceptionCron -> infra.rabbit.exCalc 'cálculo do dia (após commit)'
+    infra.rabbit.exCalc -> infra.rabbit.qCalcPunch
+    infra.rabbit.qCalcPunch -> clockWise.cwConsumer
+    autoLayout LeftRight
+  }
+}
