@@ -89,7 +89,7 @@ export function Diagram({ doc, view, update, onViewDeleted }: Props) {
   useEffect(() => {
     if (view.type !== 'flow' || selection?.type !== 'edge') return
     const s = view.steps.find(x => x.id === selection.id)
-    if (s) fitView({ nodes: [{ id: s.source }, { id: s.target }], padding: 0.8, maxZoom: 1.2, duration: 300 })
+    if (s) fitView({ nodes: [{ id: s.source }, { id: s.target }], padding: 0.3, minZoom: 0.9, maxZoom: 1.2, duration: 300 }) // zoom mínimo: balão legível
   }, [view, selection, fitView])
 
   async function suggest(preset: Preset) {
@@ -204,7 +204,7 @@ export function Diagram({ doc, view, update, onViewDeleted }: Props) {
     <div className="diagram">
       <div className="toolbar">
         <h1>{view.title}</h1>
-        <button onClick={newCard}>+ Novo card</button>
+        <button className="primary" onClick={newCard}>+ Novo card</button>
         <select value="" onChange={e => e.target.value && addExisting(e.target.value)}>
           <option value="">+ Card existente…</option>
           {available.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
