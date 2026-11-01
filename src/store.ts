@@ -1,51 +1,69 @@
-import { useEffect, useState } from 'react'
-import bundled from '../data/fortime.json'
+import { useEffect, useRef, useState } from 'react'
+import seed from '../data/fortime.json'
 import { isDoc, type Doc } from './doc'
 
-// cópia de trabalho no navegador até exportar e commitar data/fortime.json
-const KEY = 'viewgax:doc'
-const initial = bundled as unknown as Doc
-const bundledText = JSON.stringify(initial)
+const API = './api/doc'
+const SAVE_DELAY_MS = 400
 
-function load(): Doc {
-  try {
-    const local = JSON.parse(localStorage.getItem(KEY) ?? 'null')
-    if (isDoc(local)) return local
-  } catch {
-    // cópia local corrompida: volta para o arquivo
-  }
-  return initial
-}
+export type SaveStatus = 'carregando' | 'salvo' | 'salvando' | 'erro' | 'sem servidor'
 
+/** Documento vem do servidor (arquivo no container) e é salvo sozinho a cada edição. */
 export function useDoc() {
-  const [doc, setDoc] = useState<Doc>(load)
-  const dirty = JSON.stringify(doc) !== bundledText
+  const [doc, setDoc] = useState<Doc | null>(null)
+  const [status, setStatus] = useState<SaveStatus>('carregando')
+  const changed = useRef(false) // só salva o que o usuário editou, não o que acabou de carregar
 
   useEffect(() => {
-    if (dirty) localStorage.setItem(KEY, JSON.stringify(doc))
-    else localStorage.removeItem(KEY)
-  }, [doc, dirty])
+    fetch(API)
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(value => {
+        if (!isDoc(value)) throw new Error('documento inválido no servidor')
+        setDoc(value)
+        setStatus('salvo')
+      })
+      .catch(() => {
+        // site estático sem servidor: só leitura da semente
+        setDoc(seed as unknown as Doc)
+        setStatus('sem servidor')
+      })
+  }, [])
+
+  useEffect(() => {
+    if (!doc || !changed.current || status === 'sem servidor') return
+    setStatus('salvando')
+    const timer = setTimeout(() => {
+      changed.current = false
+      fetch(API, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(doc) })
+        .then(r => setStatus(r.ok ? 'salvo' : 'erro'))
+        .catch(() => setStatus('erro'))
+    }, SAVE_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [doc]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // edição ainda não enviada: avisa antes de fechar a aba
+  useEffect(() => {
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (status === 'salvando' || status === 'erro') e.preventDefault()
+    }
+    window.addEventListener('beforeunload', onUnload)
+    return () => window.removeEventListener('beforeunload', onUnload)
+  }, [status])
 
   /** Edita uma cópia do documento. */
-  const update = (fn: (draft: Doc) => void) =>
+  const update = (fn: (draft: Doc) => void) => {
+    changed.current = true
     setDoc(d => {
+      if (!d) return d
       const draft = structuredClone(d)
       fn(draft)
       return draft
     })
-
-  const discard = () => setDoc(initial)
-  const replace = (next: Doc) => setDoc(next)
-  return { doc, dirty, update, discard, replace }
-}
-
-export function exportDoc(doc: Doc) {
-  const blob = new Blob([JSON.stringify(doc, null, 2) + '\n'], { type: 'application/json' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = 'fortime.json'
-  a.click()
-  URL.revokeObjectURL(a.href)
+  }
+  const replace = (next: Doc) => {
+    changed.current = true
+    setDoc(next)
+  }
+  return { doc, status, update, replace }
 }
 
 export async function readDoc(file: File): Promise<Doc> {

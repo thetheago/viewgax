@@ -1,0 +1,16 @@
+services:
+  viewgax:
+    build: .
+    ports:
+      - "5173:5173"
+    environment:
+      DATA_FILE: /app/storage/fortime.json
+    volumes:
+      - .:/app                 # código do host: hot reload
+      - /app/node_modules      # mantém o node_modules instalado na imagem
+      - viewgax-data:/app/storage
+      # Para ver/guardar o JSON numa pasta do host, troque a linha acima por:
+      # - ./storage:/app/storage
+
+volumes:
+  viewgax-data:

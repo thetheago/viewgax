@@ -49,8 +49,13 @@ button.danger:hover:not(:disabled) { border-color: var(--danger); }
 .sidebar .file { margin-top: auto; padding-top: 16px; display: grid; gap: 6px; }
 .sidebar .file button { background: var(--ink-2); border-color: transparent; color: var(--ink-text); }
 .sidebar .file button.primary { background: linear-gradient(135deg, var(--violet), #6a4cf0); color: #fff; }
-.sidebar .dirty { color: #ffc35c; }
-.dirty { font-size: 12px; color: var(--warn); line-height: 1.4; }
+.save-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.save-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+.save-status.salvando::before, .save-status.carregando::before { background: #f5a524; }
+.save-status.erro, .save-status.sem-servidor { color: var(--danger); }
+.save-status.erro::before, .save-status.sem-servidor::before { background: var(--danger); }
+.sidebar .save-status { color: var(--ink-muted); padding: 0 4px; }
+.loading { display: grid; place-items: center; height: 100%; color: var(--muted); }
 .status { font-size: 12px; color: var(--danger); }
 .hint { font-size: 12px; color: var(--muted); }
 

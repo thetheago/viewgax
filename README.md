@@ -1,14 +1,14 @@
 # viewgax
 
 Editor visual da arquitetura Fortime: sistemas, comunicações (HTTP, filas, routing keys, payloads) e
-fluxos passo a passo. Tudo vive num arquivo só, `data/fortime.json`.
+fluxos passo a passo.
 
 ```sh
-npm install
-npm run dev      # http://localhost:5173
-npm run build    # site estático em dist/ (sirva com qualquer servidor estático)
-npm test
+docker compose up -d --build   # http://localhost:5173 (hot reload com o código do host)
+npm test                       # ou: docker compose exec viewgax npm test
 ```
+
+Sem Docker: `npm install && npm run dev`.
 
 ## Como editar
 - **Visões e fluxos**: `+` no menu lateral ou na tela inicial (clique no logo). Renomeie clicando no
@@ -29,7 +29,11 @@ npm test
 - **Layout**: arraste e redimensione; "Sugerir layout" aplica Camadas → (respeita a ordem dos grupos)
   ou Grade.
 
-## Salvar
-As edições ficam no navegador até você clicar em **Exportar JSON** e commitar o arquivo em
-`data/fortime.json`. **Importar JSON** carrega um arquivo exportado. Duas pessoas editando ao mesmo
-tempo geram conflito no git nesse arquivo: combine quem edita.
+## Onde fica salvo
+Cada edição é salva sozinha (indicador no canto da barra lateral) no arquivo `DATA_FILE`
+(`/app/storage/fortime.json` no container, no volume `viewgax-data`). Para ter o JSON numa pasta do host,
+troque o volume no `compose.yml` por `./storage:/app/storage`. Na primeira execução o arquivo é criado a
+partir de `data/fortime.json` (semente versionada). **Importar JSON** substitui tudo pelo arquivo escolhido.
+
+Última gravação vence: duas pessoas editando ao mesmo tempo sobrescrevem uma à outra.
+`npm run build` gera um site estático somente leitura (mostra a semente, sem salvar).

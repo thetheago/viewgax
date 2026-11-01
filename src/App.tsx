@@ -4,9 +4,17 @@ import { Diagram } from './Diagram'
 import { newId, type View } from './doc'
 import { Home } from './Home'
 import { Brand } from './Logo'
-import { exportDoc, readDoc, useDoc } from './store'
+import { readDoc, useDoc, type SaveStatus } from './store'
 
 const hashView = () => decodeURIComponent(location.hash.slice(1))
+
+const STATUS_TEXT: Record<SaveStatus, string> = {
+  carregando: 'Carregando…',
+  salvo: 'Tudo salvo',
+  salvando: 'Salvando…',
+  erro: 'Erro ao salvar — a próxima edição tenta de novo',
+  'sem servidor': 'Somente leitura: servidor indisponível',
+}
 
 function ViewList({ title, type, views, current, onAdd }: {
   title: string; type: 'view' | 'flow'; views: View[]; current: string; onAdd: () => void
@@ -22,7 +30,7 @@ function ViewList({ title, type, views, current, onAdd }: {
 }
 
 export function App() {
-  const { doc, dirty, update, discard, replace } = useDoc()
+  const { doc, status, update, replace } = useDoc()
   const [viewId, setViewId] = useState(hashView)
   const [error, setError] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
@@ -32,6 +40,7 @@ export function App() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
+  if (!doc) return <div className="loading">Carregando…</div>
   const view = doc.views.find(v => v.id === viewId)
 
   function add(type: 'view' | 'flow') {
@@ -52,20 +61,18 @@ export function App() {
 
   const fileActions = (
     <div className="file">
-      {dirty && <div className="dirty">Alterações só neste navegador — exporte e commite em data/fortime.json</div>}
-      <button className="primary" onClick={() => exportDoc(doc)}>Exportar JSON</button>
-      <button onClick={() => fileInput.current?.click()}>Importar JSON</button>
+      <div className={`save-status ${status.replace(' ', '-')}`}>{STATUS_TEXT[status]}</div>
+      <button onClick={() => fileInput.current?.click()} disabled={status === 'sem servidor'}>Importar JSON</button>
       <input ref={fileInput} type="file" accept=".json" hidden onChange={e => {
         const file = e.target.files?.[0]
         e.target.value = ''
-        if (file) importFile(file)
+        if (file && confirm('Importar substitui tudo o que está salvo. Continuar?')) importFile(file)
       }} />
-      {dirty && <button className="ghost" onClick={() => confirm('Descartar todas as alterações locais?') && discard()}>Descartar alterações</button>}
       {error && <div className="status">{error}</div>}
     </div>
   )
 
-    const remove = (id: string) => update(d => void (d.views = d.views.filter(v => v.id !== id)))
+  const remove = (id: string) => update(d => void (d.views = d.views.filter(v => v.id !== id)))
 
   if (!view) return <Home doc={doc} onAdd={add} onDelete={remove} fileActions={fileActions} />
 
