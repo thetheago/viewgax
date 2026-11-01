@@ -15,6 +15,8 @@ npm test
   grupos (colunas da esquerda para a direita) ou excluir.
 - **Cards**: `+ Novo card` ou `+ Card existente`. Clique no card para editar nome, tecnologia, ícone
   (`bootstrap:*` ou `tech:*`), cor, pai ("dentro de"), grupo e detalhes.
+- **Atalhos**: `Delete` tira o card selecionado da visão (ele continua no modelo; para apagar de vez,
+  "Excluir do modelo" no painel). `Ctrl+C` / `Ctrl+V` duplica o card, também entre visões.
 - **Comunicações / passos**: passe o mouse no card e arraste o ponto azul até outro card. Numa visão
   cria uma comunicação; num fluxo cria o próximo passo (os sistemas donos entram junto).
 - **Detalhes da seta**: protocolo, explicação e campos livres (routing key, fila, ACK/DLQ…).

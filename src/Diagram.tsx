@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyNodeChanges, Background, Controls, ReactFlow, useNodesInitialized, useReactFlow,
   type FinalConnectionState, type Node, type NodeChange,
 } from '@xyflow/react'
 import { computeView, withAncestors, type NodeData } from './compute'
-import { newId, type Doc, type View } from './doc'
+import { newId, removeFromView, type Doc, type View } from './doc'
 import { ArrowMarkers, edgeTypes, SelectEdge } from './FloatingEdge'
 import { autoLayout, fillMissing, hasValidPosition, PRESETS, toPositions, type Preset } from './layout'
 import { nodeTypes } from './nodes'
@@ -16,6 +16,11 @@ type Props = { doc: Doc; view: View; update: (fn: (d: Doc) => void) => void; onV
 // fim de arrasto ou de redimensionamento = edição do usuário que vale salvar
 const isEditEnd = (c: NodeChange) =>
   (c.type === 'position' && c.dragging === false) || (c.type === 'dimensions' && c.resizing === false)
+
+// card copiado com Ctrl+C; vale entre visões
+let copiedId: string | null = null
+
+const isTyping = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest('input, textarea, select')
 
 const groupColumns = (view: View) => (view.type === 'view' ? view.groups.map(g => g.id) : [])
 
@@ -71,10 +76,13 @@ export function Diagram({ doc, view, update, onViewDeleted }: Props) {
     setPendingSave(false)
   }, [pendingSave, nodes, savePositions])
 
-  // o prop fitView do xyflow às vezes dispara antes da medição no build de produção
+  // enquadra só ao abrir a visão; depois a câmera é do usuário (o prop fitView do xyflow falha no build)
   const initialized = useNodesInitialized()
+  const fitted = useRef(false)
   useEffect(() => {
-    if (initialized) fitView()
+    if (!initialized || fitted.current) return
+    fitted.current = true
+    fitView()
   }, [initialized, fitView])
 
   // fluxo: aproxima a câmera do passo selecionado
@@ -123,6 +131,38 @@ export function Diagram({ doc, view, update, onViewDeleted }: Props) {
     })
     setSelection({ type: 'node', id })
   }
+
+  function pasteCopy() {
+    const original = doc.elements.find(e => e.id === copiedId)
+    if (!original) return
+    const id = newId('el')
+    update(d => {
+      d.elements.push({ ...structuredClone(original), id, title: `${original.title} (cópia)` })
+      const v = d.views.find(x => x.id === view.id)!
+      v.elements.push(id)
+      v.positions[id] = freeSpot()
+    })
+    setSelection({ type: 'node', id })
+  }
+
+  // Delete tira o card desta visão (continua no modelo); Ctrl+C / Ctrl+V duplica o card
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isTyping(e)) return
+      const card = selection?.type === 'node' && doc.elements.some(x => x.id === selection.id) ? selection.id : null
+      const ctrl = e.ctrlKey || e.metaKey
+      if (card && (e.key === 'Delete' || e.key === 'Backspace')) {
+        editView(v => removeFromView(v, card))
+        setSelection(null)
+      } else if (card && ctrl && e.key === 'c') {
+        copiedId = card
+      } else if (ctrl && e.key === 'v') {
+        pasteCopy()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   // soltou a seta em cima de um card: cria comunicação (visão) ou próximo passo (fluxo)
   function onConnectEnd(event: MouseEvent | TouchEvent, state: FinalConnectionState) {
