@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import type { Edge } from '@xyflow/react'
 import { PALETTE } from './colors'
 import type { EdgeData } from './compute'
-import { deleteElement, newId, removeFromView, type Doc, type Element, type Metadata, type Relation, type Step, type View } from './doc'
+import { deleteElement, newId, removeFromView, type Doc, type Element, type Group, type Metadata, type Relation, type Step, type View } from './doc'
 import { ICON_NAMES } from './Icon'
 
 export type Selection = { type: 'node' | 'edge'; id: string } | null
@@ -96,15 +97,13 @@ function RelationEditor({ doc, id, update }: { doc: Doc; id: string; update: Upd
   )
 }
 
-function ElementEditor({ doc, view, id, edges, onSelect, update }: Omit<Props, 'selection'> & { id: string }) {
+function ElementEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selection' | 'edges'> & { id: string }) {
   const el = doc.elements.find(e => e.id === id)
   if (!el) return null
   const edit = (fn: (e: Element) => void) => update(d => fn(d.elements.find(x => x.id === id)!))
   const editView = (fn: (v: View) => void) => update(d => fn(d.views.find(v => v.id === view.id)!))
   const others = doc.elements.filter(e => e.id !== id).sort((a, b) => a.title.localeCompare(b.title))
   const group = view.type === 'view' ? view.groups.find(g => g.elements.includes(id)) : undefined
-  const titleOf = (eid: string) => doc.elements.find(e => e.id === eid)?.title ?? eid
-  const linked = edges.filter(e => e.source === id || e.target === id)
 
   return (
     <>
@@ -145,21 +144,6 @@ function ElementEditor({ doc, view, id, edges, onSelect, update }: Omit<Props, '
         </label>
       )}
       <MetadataEditor metadata={el.metadata} onChange={m => edit(x => (x.metadata = m))} />
-      {linked.length > 0 && (
-        <>
-          <h3>Comunicações nesta visão</h3>
-          <ul className="links">
-            {linked.map(e => (
-              <li key={e.id}>
-                <button onClick={() => onSelect({ type: 'edge', id: e.id })}>
-                  {e.source === id ? `→ ${titleOf(e.target)}` : `← ${titleOf(e.source)}`}
-                  {e.data?.label && <small>{e.data.label}</small>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
       <div className="row">
         <button onClick={() => { editView(v => removeFromView(v, id)); onSelect(null) }}>Tirar desta visão</button>
         <button className="danger" onClick={() => {
@@ -208,64 +192,169 @@ function StepEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selection'
   )
 }
 
-function ViewEditor({ view, onSelect, update, onDeleted }: Omit<Props, 'selection' | 'edges' | 'doc'> & { onDeleted: () => void }) {
-  const editView = (fn: (v: View) => void) => update(d => fn(d.views.find(v => v.id === view.id)!))
+function GroupEditor({ view, id, onSelect, update }: Omit<Props, 'selection' | 'edges' | 'doc'> & { id: string }) {
+  if (view.type !== 'view') return null
+  const i = view.groups.findIndex(g => g.id === id)
+  if (i < 0) return null
+  const edit = (fn: (groups: Group[]) => void) =>
+    update(d => { const v = d.views.find(x => x.id === view.id); if (v?.type === 'view') fn(v.groups) })
+  const move = (delta: number) => edit(groups => groups.splice(i + delta, 0, ...groups.splice(i, 1)))
   return (
     <>
-      <div className="panel-kicker">{view.type === 'flow' ? 'Fluxo' : 'Visão'}</div>
-      <Field label="Título" value={view.title} onChange={v => editView(x => (x.title = v ?? ''))} />
-      {view.type === 'view' && (
-        <>
-          <h3>Grupos (colunas, da esquerda para a direita)</h3>
-          {view.groups.map((g, i) => (
-            <div key={g.id} className="meta-key">
-              <input value={g.title} onChange={e => editView(v => { if (v.type === 'view') v.groups[i].title = e.target.value })} />
-              <button title="Mover para a esquerda" disabled={i === 0} onClick={() => editView(v => {
-                if (v.type === 'view') v.groups.splice(i - 1, 0, ...v.groups.splice(i, 1))
-              })}>↑</button>
-              <button title="Excluir grupo (os cards ficam)" onClick={() => editView(v => {
-                if (v.type !== 'view') return
-                v.groups.splice(i, 1)
-                delete v.positions[g.id]
-              })}>✕</button>
-            </div>
-          ))}
-          <button onClick={() => editView(v => {
-            if (v.type === 'view') v.groups.push({ id: newId('g'), title: `Grupo ${v.groups.length + 1}`, elements: [] })
-          })}>+ Grupo</button>
-          <p className="hint">Coloque um card num grupo pelo painel do card.</p>
-        </>
-      )}
-      {view.type === 'flow' && (
-        <>
-          <h3>Passos</h3>
-          <ol className="steps">
-            {view.steps.map(s => <li key={s.id}><button onClick={() => onSelect({ type: 'edge', id: s.id })}>{s.title || '(sem título)'}</button></li>)}
-          </ol>
-          <p className="hint">Novo passo: arraste do ponto à direita de um card até outro card.</p>
-        </>
-      )}
-      <button className="danger" onClick={() => {
-        if (!confirm(`Excluir "${view.title}"? Os cards e comunicações continuam no modelo.`)) return
-        update(d => void (d.views = d.views.filter(v => v.id !== view.id)))
-        onDeleted()
-      }}>Excluir {view.type === 'flow' ? 'fluxo' : 'visão'}</button>
+      <Field label="Nome do grupo" value={view.groups[i].title} onChange={v => edit(groups => (groups[i].title = v ?? ''))} />
+      <p className="hint">A ordem dos grupos define as colunas do layout "Camadas →".</p>
+      <div className="row">
+        <button disabled={i === 0} onClick={() => move(-1)}>← Coluna antes</button>
+        <button disabled={i === view.groups.length - 1} onClick={() => move(1)}>Coluna depois →</button>
+        <button className="danger" onClick={() => { edit(groups => groups.splice(i, 1)); onSelect(null) }}>Excluir grupo</button>
+      </div>
     </>
   )
 }
 
-export function Panel(props: Props & { onViewDeleted: () => void }) {
-  const { doc, view, edges, selection, update } = props
+/* ── leitura ─────────────────────────── */
+
+function prettyJson(value: string) {
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value
+  }
+}
+
+function MetadataView({ metadata }: { metadata?: Metadata }) {
+  if (!metadata) return null
+  return (
+    <dl className="meta">
+      {Object.entries(metadata).map(([key, raw]) => {
+        const value = Array.isArray(raw) ? raw.join('\n') : raw
+        return (
+          <div key={key}>
+            <dt>{key}</dt>
+            <dd>{key === 'payload' ? <pre className="code">{prettyJson(value)}</pre> : value}</dd>
+          </div>
+        )
+      })}
+    </dl>
+  )
+}
+
+const KindBadge = ({ kind }: { kind?: string }) => <span className={`badge kind-${kind ?? 'outro'}`}>{kind ?? 'outro'}</span>
+
+function RelationView({ doc, id }: { doc: Doc; id: string }) {
+  const r = doc.relations.find(x => x.id === id)
+  if (!r) return null
+  const titleOf = (eid: string) => doc.elements.find(e => e.id === eid)?.title ?? eid
+  return (
+    <article className="relation-view">
+      <div className="relation-route">{titleOf(r.source)} <span>→</span> {titleOf(r.target)}</div>
+      <h3>{r.title || '(sem título)'} <KindBadge kind={r.kind} /></h3>
+      {r.technology && <div className="tech">{r.technology}</div>}
+      {r.description && <p className="desc">{r.description}</p>}
+      <MetadataView metadata={r.metadata} />
+      {r.tags && <div className="tags">{r.tags.map(t => <span key={t}>#{t}</span>)}</div>}
+    </article>
+  )
+}
+
+function ElementView({ doc, id, edges, onSelect }: { doc: Doc; id: string; edges: Edge<EdgeData>[]; onSelect: (s: Selection) => void }) {
+  const el = doc.elements.find(e => e.id === id)
+  if (!el) return null
+  const titleOf = (eid: string) => doc.elements.find(e => e.id === eid)?.title ?? eid
+  const incoming = edges.filter(e => e.target === id)
+  const outgoing = edges.filter(e => e.source === id)
+  const parent = el.parent ? titleOf(el.parent) : null
+  const LinkList = ({ title, list, other }: { title: string; list: Edge<EdgeData>[]; other: (e: Edge<EdgeData>) => string }) =>
+    list.length ? (
+      <>
+        <h4 className="section-title">{title} <span>{list.length}</span></h4>
+        <ul className="links">
+          {list.map(e => (
+            <li key={e.id}>
+              <button onClick={() => onSelect({ type: 'edge', id: e.id })}>
+                <strong>{titleOf(other(e))}</strong>
+                {e.data?.label && <small>{e.data.label}</small>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </>
+    ) : null
+  return (
+    <>
+      {el.technology && <div className="tech">{el.technology}</div>}
+      {parent && <div className="tech">dentro de <strong>{parent}</strong></div>}
+      {el.description && <p className="desc">{el.description}</p>}
+      <MetadataView metadata={el.metadata} />
+      <LinkList title="Recebe de" list={incoming} other={e => e.source} />
+      <LinkList title="Chama / envia para" list={outgoing} other={e => e.target} />
+    </>
+  )
+}
+
+function StepView({ doc, view, id }: { doc: Doc; view: View; id: string }) {
+  if (view.type !== 'flow') return null
+  const step = view.steps.find(s => s.id === id)
+  if (!step) return null
+  const relations = doc.relations.filter(r => r.source === step.source && r.target === step.target)
+  return (
+    <>
+      {step.notes ? <p className="desc">{step.notes}</p> : <p className="hint">Sem explicação ainda. Clique em Editar para escrever o texto do balão.</p>}
+      {relations.map(r => <RelationView key={r.id} doc={doc} id={r.id} />)}
+    </>
+  )
+}
+
+/* ── painel ──────────────────────────── */
+
+function headerOf(doc: Doc, view: View, edges: Edge<EdgeData>[], selection: NonNullable<Selection>) {
+  const titleOf = (eid: string) => doc.elements.find(e => e.id === eid)?.title ?? eid
+  if (selection.type === 'node') {
+    const el = doc.elements.find(e => e.id === selection.id)
+    if (el) return { kicker: el.kind, title: el.title }
+    const group = view.type === 'view' ? view.groups.find(g => g.id === selection.id) : undefined
+    return { kicker: 'grupo', title: group?.title ?? '' }
+  }
+  if (view.type === 'flow') {
+    const i = view.steps.findIndex(s => s.id === selection.id)
+    const step = view.steps[i]
+    return { kicker: `passo ${i + 1} · ${titleOf(step?.source)} → ${titleOf(step?.target)}`, title: step?.title ?? '' }
+  }
+  const edge = edges.find(e => e.id === selection.id)
+  return { kicker: 'comunicação', title: edge ? `${titleOf(edge.source)} → ${titleOf(edge.target)}` : '' }
+}
+
+export function Panel(props: Props) {
+  const { doc, view, edges, selection, onSelect, update } = props
+  const [editing, setEditing] = useState(false)
+  if (!selection) return null
+  const { kicker, title } = headerOf(doc, view, edges, selection)
+  const isElement = selection.type === 'node' && doc.elements.some(e => e.id === selection.id)
+  const isGroup = selection.type === 'node' && !isElement
+  const relationIds = selection.type === 'edge' && view.type === 'view' ? edges.find(e => e.id === selection.id)?.data?.relations ?? [] : []
+
   return (
     <aside className="panel">
       <datalist id="icon-names">{ICON_NAMES.map(n => <option key={n} value={n} />)}</datalist>
-      {!selection && <ViewEditor {...props} onDeleted={props.onViewDeleted} />}
-      {selection?.type === 'node' && (doc.elements.some(e => e.id === selection.id)
-        ? <ElementEditor {...props} id={selection.id} />
-        : <p className="hint">Grupo: renomeie ou exclua no painel da visão (clique no fundo).</p>)}
-      {selection?.type === 'edge' && view.type === 'flow' && <StepEditor {...props} id={selection.id} />}
-      {selection?.type === 'edge' && view.type === 'view' &&
-        edges.find(e => e.id === selection.id)?.data?.relations.map(id => <RelationEditor key={id} doc={doc} id={id} update={update} />)}
+      <header className="panel-header">
+        <div>
+          <div className="panel-kicker">{kicker}</div>
+          <h2>{title || '(sem título)'}</h2>
+        </div>
+        {!isGroup && <button className={editing ? 'primary' : ''} onClick={() => setEditing(!editing)}>{editing ? 'Concluir' : 'Editar'}</button>}
+        <button className="ghost close" title="Fechar" onClick={() => onSelect(null)}>✕</button>
+      </header>
+
+      {isGroup && <GroupEditor view={view} id={selection.id} onSelect={onSelect} update={update} />}
+      {isElement && (editing
+        ? <ElementEditor doc={doc} view={view} id={selection.id} onSelect={onSelect} update={update} />
+        : <ElementView doc={doc} id={selection.id} edges={edges} onSelect={onSelect} />)}
+      {selection.type === 'edge' && view.type === 'flow' && (editing
+        ? <StepEditor doc={doc} view={view} id={selection.id} onSelect={onSelect} update={update} />
+        : <StepView doc={doc} view={view} id={selection.id} />)}
+      {relationIds.map(id => (editing
+        ? <RelationEditor key={id} doc={doc} id={id} update={update} />
+        : <RelationView key={id} doc={doc} id={id} />))}
     </aside>
   )
 }

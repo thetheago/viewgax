@@ -11,8 +11,11 @@ npm test
 ```
 
 ## Como editar
-- **Visões e fluxos**: botão `+` no menu lateral. Clique no fundo do canvas para renomear, gerenciar
-  grupos (colunas da esquerda para a direita) ou excluir.
+- **Visões e fluxos**: `+` no menu lateral ou na tela inicial (clique no logo). Renomeie clicando no
+  título; exclua pelo ✕ do card na tela inicial.
+- **Detalhes**: clique num card, seta ou passo para ler; **Editar** no painel abre os campos.
+- **Grupos** (colunas da esquerda para a direita): `+ Grupo`; clique no grupo para renomear e mudar a
+  ordem; `Delete` apaga o grupo (os cards ficam).
 - **Cards**: `+ Novo card` ou `+ Card existente`. Clique no card para editar nome, tecnologia, ícone
   (`bootstrap:*` ou `tech:*`), cor, pai ("dentro de"), grupo e detalhes.
 - **Atalhos**: `Delete` tira o card selecionado da visão (ele continua no modelo; para apagar de vez,

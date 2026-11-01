@@ -11,7 +11,7 @@ import { nodeTypes } from './nodes'
 import { Panel, type Selection } from './Panel'
 import { Stepper } from './Stepper'
 
-type Props = { doc: Doc; view: View; update: (fn: (d: Doc) => void) => void; onViewDeleted: () => void }
+type Props = { doc: Doc; view: View; update: (fn: (d: Doc) => void) => void }
 
 // fim de arrasto ou de redimensionamento = edição do usuário que vale salvar
 const isEditEnd = (c: NodeChange) =>
@@ -43,7 +43,7 @@ function related(edges: { id: string; source: string; target: string }[], select
   return ids
 }
 
-export function Diagram({ doc, view, update, onViewDeleted }: Props) {
+export function Diagram({ doc, view, update }: Props) {
   const computed = useMemo(() => computeView(doc, view), [doc, view])
   const [nodes, setNodes] = useState<Node<NodeData>[]>(computed.nodes)
   const [selection, setSelection] = useState<Selection>(null)
@@ -124,6 +124,16 @@ export function Diagram({ doc, view, update, onViewDeleted }: Props) {
     setSelection({ type: 'node', id })
   }
 
+  function newGroup() {
+    const id = newId('g')
+    editView(v => {
+      if (v.type !== 'view') return
+      v.groups.push({ id, title: `Grupo ${v.groups.length + 1}`, elements: [] })
+      v.positions[id] = { ...freeSpot(), w: 400, h: 300 }
+    })
+    setSelection({ type: 'node', id })
+  }
+
   function addExisting(id: string) {
     editView(v => {
       v.elements.push(id)
@@ -151,8 +161,13 @@ export function Diagram({ doc, view, update, onViewDeleted }: Props) {
       if (isTyping(e)) return
       const card = selection?.type === 'node' && doc.elements.some(x => x.id === selection.id) ? selection.id : null
       const ctrl = e.ctrlKey || e.metaKey
-      if (card && (e.key === 'Delete' || e.key === 'Backspace')) {
+      const group = selection?.type === 'node' && view.type === 'view' && view.groups.some(g => g.id === selection.id) ? selection.id : null
+      const isDelete = e.key === 'Delete' || e.key === 'Backspace'
+      if (card && isDelete) {
         editView(v => removeFromView(v, card))
+        setSelection(null)
+      } else if (group && isDelete) {
+        editView(v => void (v.type === 'view' && (v.groups = v.groups.filter(g => g.id !== group))))
         setSelection(null)
       } else if (card && ctrl && e.key === 'c') {
         copiedId = card
@@ -201,10 +216,17 @@ export function Diagram({ doc, view, update, onViewDeleted }: Props) {
   const selectEdge = useCallback((id: string) => setSelection({ type: 'edge', id }), [])
 
   return (
-    <div className="diagram">
+    <div className={`diagram ${selection ? 'with-panel' : ''}`}>
       <div className="toolbar">
-        <h1>{view.title}</h1>
+        <input
+          className="title-input"
+          value={view.title}
+          placeholder="Sem título"
+          title="Clique para renomear"
+          onChange={e => editView(v => void (v.title = e.target.value))}
+        />
         <button className="primary" onClick={newCard}>+ Novo card</button>
+        {view.type === 'view' && <button onClick={newGroup}>+ Grupo</button>}
         <select value="" onChange={e => e.target.value && addExisting(e.target.value)}>
           <option value="">+ Card existente…</option>
           {available.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
@@ -213,7 +235,7 @@ export function Diagram({ doc, view, update, onViewDeleted }: Props) {
           <option value="">Sugerir layout…</option>
           {Object.entries(PRESETS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>
-        <span className="hint">Arraste do ponto à direita de um card até outro para {view.type === 'flow' ? 'criar um passo' : 'criar uma comunicação'}.</span>
+        <span className="hint">Arraste o ● de um card até outro para {view.type === 'flow' ? 'criar um passo' : 'ligar'}.</span>
         {status && <span className="status">{status}</span>}
       </div>
       <div className="canvas">
@@ -238,7 +260,7 @@ export function Diagram({ doc, view, update, onViewDeleted }: Props) {
         </SelectEdge.Provider>
         {view.type === 'flow' && <Stepper steps={view.steps} selection={selection} onSelect={setSelection} />}
       </div>
-      <Panel doc={doc} view={view} edges={computed.edges} selection={selection} onSelect={setSelection} update={update} onViewDeleted={onViewDeleted} />
+      <Panel key={selection ? `${selection.type}:${selection.id}` : 'none'} doc={doc} view={view} edges={computed.edges} selection={selection} onSelect={setSelection} update={update} />
     </div>
   )
 }

@@ -65,7 +65,9 @@ export function App() {
     </div>
   )
 
-  if (!view) return <Home doc={doc} onAdd={add} fileActions={fileActions} />
+    const remove = (id: string) => update(d => void (d.views = d.views.filter(v => v.id !== id)))
+
+  if (!view) return <Home doc={doc} onAdd={add} onDelete={remove} fileActions={fileActions} />
 
   return (
     <div className="app">
@@ -76,7 +78,7 @@ export function App() {
         {fileActions}
       </nav>
       <ReactFlowProvider key={view.id}>
-        <Diagram doc={doc} view={view} update={update} onViewDeleted={() => (location.hash = '')} />
+        <Diagram doc={doc} view={view} update={update} />
       </ReactFlowProvider>
     </div>
   )
