@@ -4,7 +4,7 @@ import type { Doc, Element, View } from './doc'
 
 export const CARD_W = 240
 
-export type NodeData = { title: string; color?: string; icon?: string; technology?: string; description?: string; group: boolean }
+export type NodeData = { title: string; color?: string; icon?: string; technology?: string; description?: string; detail?: string; group: boolean }
 export type EdgeData = { color: string; line: string; label?: string; relations: string[]; step?: number; notes?: string; active?: boolean }
 
 // kinds de relação do modelo → estilo da seta
@@ -57,7 +57,7 @@ export function computeView(doc: Doc, view: View): { nodes: Node<NodeData>[]; ed
     .map((id): Node<NodeData> => {
       const e = byId.get(id) as Element
       const container = hasChildren.has(id)
-      const data = { title: e.title, color: e.color, icon: e.icon, technology: e.technology, description: e.description, group: false }
+      const data = { title: e.title, color: e.color, icon: e.icon, technology: e.technology, description: e.description, detail: e.detail, group: false }
       return {
         id, type: container ? 'container' : 'card', parentId: parentOf.get(id), expandParent: true,
         position: { x: 0, y: 0 }, ...(container ? { width: 400, height: 300 } : {}), data,

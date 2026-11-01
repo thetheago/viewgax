@@ -47,7 +47,8 @@
       "color": "primary",
       "icon": "bootstrap:fingerprint",
       "technology": "Hyperf 3.1 / Swoole",
-      "description": "Registro de ponto: persiste, reconcilia o dia, pede o cálculo e gera a linha fiscal do AFD"
+      "description": "Registro de ponto: persiste, reconcilia o dia, pede o cálculo e gera a linha fiscal do AFD",
+      "detail": "punch"
     },
     {
       "id": "clockWise",
@@ -228,7 +229,7 @@
       "title": "WebhookConsumer",
       "kind": "worker",
       "color": "indigo",
-      "icon": "tech:rabbitmq",
+      "icon": "tech:rabbitmq-icon",
       "technology": "punch_register · consumer (1)",
       "description": "Relê a linha e envia o envelope ao cliente. Falha de entrega = ACK, sem DLQ."
     },
@@ -238,7 +239,7 @@
       "title": "AfdLineConsumer",
       "kind": "worker",
       "color": "indigo",
-      "icon": "tech:rabbitmq",
+      "icon": "tech:rabbitmq-icon",
       "technology": "punch_register · consumer (2)",
       "description": "Ponto único da linha fiscal (registro tipo 7). Falha = DROP → DLQ."
     },
@@ -248,7 +249,7 @@
       "title": "AfdImportConsumer",
       "kind": "worker",
       "color": "indigo",
-      "icon": "tech:rabbitmq",
+      "icon": "tech:rabbitmq-icon",
       "technology": "punch_register · consumer (1)",
       "description": "Importa AFD de relógio (AfdImportManager). Resultado em client_import_files. ACK sempre."
     },
@@ -258,7 +259,7 @@
       "title": "AgentPunchesConsumer",
       "kind": "worker",
       "color": "indigo",
-      "icon": "tech:rabbitmq",
+      "icon": "tech:rabbitmq-icon",
       "technology": "punch_register · consumer (1)",
       "description": "Único gravador das batidas dos agentes. Grava por pacote, anota no Redis, cursor anda com o lote completo. ACK sempre."
     },
@@ -298,7 +299,7 @@
       "title": "Consumer de cálculo",
       "kind": "worker",
       "color": "indigo",
-      "icon": "tech:rabbitmq",
+      "icon": "tech:rabbitmq-icon",
       "technology": "clock_wise · consumer",
       "description": "Consome clock-wise.calculate.punch e .system (não está na main local do clock_wise)",
       "tags": [
@@ -329,7 +330,7 @@
       "title": "RabbitMQ",
       "kind": "broker",
       "color": "amber",
-      "icon": "tech:rabbitmq",
+      "icon": "tech:rabbitmq-icon",
       "technology": "RabbitMQ 3"
     },
     {
@@ -348,7 +349,7 @@
       "title": "MySQL — DB do tenant",
       "kind": "database",
       "color": "slate",
-      "icon": "tech:mysql",
+      "icon": "tech:mysql-icon",
       "technology": "Mysql",
       "description": "time_cards, time_card_hour, saved_calculations, body_tax_file, point_clock… (milhões de linhas)"
     },
@@ -358,7 +359,7 @@
       "title": "MySQL — landlord",
       "kind": "database",
       "color": "slate",
-      "icon": "tech:mysql",
+      "icon": "tech:mysql-icon",
       "technology": "Mysql",
       "description": "tenants, environments (config por tenant)"
     },
@@ -368,7 +369,7 @@
       "title": "Cloudflare R2",
       "kind": "bucket",
       "color": "secondary",
-      "icon": "tech:cloudflare",
+      "icon": "tech:cloudflare-icon",
       "technology": "Cloudflare",
       "description": "Fotos da batida (path = contrato do monólito), arquivos de AFD, releases do agente"
     },

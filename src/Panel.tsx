@@ -1,9 +1,8 @@
-import { useState } from 'react'
 import type { Edge } from '@xyflow/react'
 import { PALETTE } from './colors'
 import type { EdgeData } from './compute'
 import { deleteElement, newId, removeFromView, type Doc, type Element, type Group, type Metadata, type Relation, type Step, type View } from './doc'
-import { ICON_NAMES } from './Icon'
+import { IconPicker } from './IconPicker'
 
 export type Selection = { type: 'node' | 'edge'; id: string } | null
 type Update = (fn: (draft: Doc) => void) => void
@@ -14,6 +13,8 @@ type Props = {
   selection: Selection
   onSelect: (s: Selection) => void
   update: Update
+  editing: boolean
+  onOpenDetail: (id: string) => void
 }
 
 const RELATION_KINDS = ['http', 'async', 'db', 'outro']
@@ -97,7 +98,7 @@ function RelationEditor({ doc, id, update }: { doc: Doc; id: string; update: Upd
   )
 }
 
-function ElementEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selection' | 'edges'> & { id: string }) {
+function ElementEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selection' | 'edges' | 'editing' | 'onOpenDetail'> & { id: string }) {
   const el = doc.elements.find(e => e.id === id)
   if (!el) return null
   const edit = (fn: (e: Element) => void) => update(d => fn(d.elements.find(x => x.id === id)!))
@@ -118,11 +119,8 @@ function ElementEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selecti
             {Object.keys(PALETTE).map(c => <option key={c}>{c}</option>)}
           </select>
         </label>
-        <label className="field">
-          <span>Ícone</span>
-          <input list="icon-names" value={el.icon ?? ''} placeholder="bootstrap:phone" onChange={e => edit(x => (x.icon = e.target.value || undefined))} />
-        </label>
       </div>
+      <IconPicker value={el.icon} onChange={icon => edit(x => (x.icon = icon))} />
       <label className="field">
         <span>Dentro de</span>
         <select value={el.parent ?? ''} onChange={e => edit(x => (x.parent = e.target.value || undefined))}>
@@ -130,6 +128,7 @@ function ElementEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selecti
           {others.map(o => <option key={o.id} value={o.id}>{o.title}</option>)}
         </select>
       </label>
+      <DetailField doc={doc} el={el} update={update} />
       {view.type === 'view' && (
         <label className="field">
           <span>Grupo nesta visão</span>
@@ -156,7 +155,32 @@ function ElementEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selecti
   )
 }
 
-function StepEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selection' | 'edges'> & { id: string }) {
+const NEW_DETAIL = '+nova'
+
+/** Liga o card a uma visão de detalhe; "+ Nova visão" cria uma com o card e seus filhos. */
+function DetailField({ doc, el, update }: { doc: Doc; el: Element; update: Update }) {
+  function choose(value: string) {
+    if (value !== NEW_DETAIL) return update(d => void (d.elements.find(x => x.id === el.id)!.detail = value || undefined))
+    const id = newId('view')
+    const children = doc.elements.filter(e => e.parent === el.id).map(e => e.id)
+    update(d => {
+      d.views.push({ id, type: 'view', title: el.title, elements: [el.id, ...children], positions: {}, groups: [] })
+      d.elements.find(x => x.id === el.id)!.detail = id
+    })
+  }
+  return (
+    <label className="field">
+      <span>Visão de detalhe (duplo clique abre)</span>
+      <select value={el.detail ?? ''} onChange={e => choose(e.target.value)}>
+        <option value="">— nenhuma —</option>
+        {doc.views.map(v => <option key={v.id} value={v.id}>{v.title || '(sem título)'}</option>)}
+        <option value={NEW_DETAIL}>+ Nova visão de detalhe</option>
+      </select>
+    </label>
+  )
+}
+
+function StepEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selection' | 'edges' | 'editing' | 'onOpenDetail'> & { id: string }) {
   if (view.type !== 'flow') return null
   const index = view.steps.findIndex(s => s.id === id)
   const step = view.steps[index]
@@ -192,7 +216,7 @@ function StepEditor({ doc, view, id, onSelect, update }: Omit<Props, 'selection'
   )
 }
 
-function GroupEditor({ view, id, onSelect, update }: Omit<Props, 'selection' | 'edges' | 'doc'> & { id: string }) {
+function GroupEditor({ view, id, onSelect, update }: Omit<Props, 'selection' | 'edges' | 'doc' | 'editing' | 'onOpenDetail'> & { id: string }) {
   if (view.type !== 'view') return null
   const i = view.groups.findIndex(g => g.id === id)
   if (i < 0) return null
@@ -257,7 +281,7 @@ function RelationView({ doc, id }: { doc: Doc; id: string }) {
   )
 }
 
-function ElementView({ doc, id, edges, onSelect }: { doc: Doc; id: string; edges: Edge<EdgeData>[]; onSelect: (s: Selection) => void }) {
+function ElementView({ doc, id, edges, onSelect, onOpenDetail }: Pick<Props, 'doc' | 'edges' | 'onSelect' | 'onOpenDetail'> & { id: string }) {
   const el = doc.elements.find(e => e.id === id)
   if (!el) return null
   const titleOf = (eid: string) => doc.elements.find(e => e.id === eid)?.title ?? eid
@@ -282,6 +306,7 @@ function ElementView({ doc, id, edges, onSelect }: { doc: Doc; id: string; edges
     ) : null
   return (
     <>
+      {el.detail && <button className="primary detail-link" onClick={() => onOpenDetail(id)}>Ver detalhes →</button>}
       {el.technology && <div className="tech">{el.technology}</div>}
       {parent && <div className="tech">dentro de <strong>{parent}</strong></div>}
       {el.description && <p className="desc">{el.description}</p>}
@@ -299,7 +324,7 @@ function StepView({ doc, view, id }: { doc: Doc; view: View; id: string }) {
   const relations = doc.relations.filter(r => r.source === step.source && r.target === step.target)
   return (
     <>
-      {step.notes ? <p className="desc">{step.notes}</p> : <p className="hint">Sem explicação ainda. Clique em Editar para escrever o texto do balão.</p>}
+      {step.notes ? <p className="desc">{step.notes}</p> : <p className="hint">Sem explicação ainda. Ligue o modo Editar para escrever o texto do balão.</p>}
       {relations.map(r => <RelationView key={r.id} doc={doc} id={r.id} />)}
     </>
   )
@@ -325,8 +350,7 @@ function headerOf(doc: Doc, view: View, edges: Edge<EdgeData>[], selection: NonN
 }
 
 export function Panel(props: Props) {
-  const { doc, view, edges, selection, onSelect, update } = props
-  const [editing, setEditing] = useState(false)
+  const { doc, view, edges, selection, onSelect, update, editing } = props
   if (!selection) return null
   const { kicker, title } = headerOf(doc, view, edges, selection)
   const isElement = selection.type === 'node' && doc.elements.some(e => e.id === selection.id)
@@ -335,20 +359,18 @@ export function Panel(props: Props) {
 
   return (
     <aside className="panel">
-      <datalist id="icon-names">{ICON_NAMES.map(n => <option key={n} value={n} />)}</datalist>
       <header className="panel-header">
         <div>
           <div className="panel-kicker">{kicker}</div>
           <h2>{title || '(sem título)'}</h2>
         </div>
-        {!isGroup && <button className={editing ? 'primary' : ''} onClick={() => setEditing(!editing)}>{editing ? 'Concluir' : 'Editar'}</button>}
         <button className="ghost close" title="Fechar" onClick={() => onSelect(null)}>✕</button>
       </header>
 
-      {isGroup && <GroupEditor view={view} id={selection.id} onSelect={onSelect} update={update} />}
+      {isGroup && editing && <GroupEditor view={view} id={selection.id} onSelect={onSelect} update={update} />}
       {isElement && (editing
         ? <ElementEditor doc={doc} view={view} id={selection.id} onSelect={onSelect} update={update} />
-        : <ElementView doc={doc} id={selection.id} edges={edges} onSelect={onSelect} />)}
+        : <ElementView doc={doc} id={selection.id} edges={edges} onSelect={onSelect} onOpenDetail={props.onOpenDetail} />)}
       {selection.type === 'edge' && view.type === 'flow' && (editing
         ? <StepEditor doc={doc} view={view} id={selection.id} onSelect={onSelect} update={update} />
         : <StepView doc={doc} view={view} id={selection.id} />)}

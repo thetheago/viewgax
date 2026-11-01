@@ -22,6 +22,7 @@ export function Card({ data, selected }: NodeProps<Node<NodeData>>) {
           <div className="card-title">{data.title}</div>
           {data.technology && <div className="card-tech">{data.technology}</div>}
         </div>
+        {data.detail && <span className="detail-mark" title="Duplo clique abre o detalhe">⤢</span>}
       </div>
       {data.description && <div className="card-desc">{data.description}</div>}
     </div>
@@ -37,6 +38,7 @@ export function Container({ data, selected }: NodeProps<Node<NodeData>>) {
       <div className="container-head">
         <Icon name={data.icon} />
         <span>{data.title}</span>
+        {data.detail && <span className="detail-mark" title="Duplo clique abre o detalhe">⤢</span>}
       </div>
     </div>
   )

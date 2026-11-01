@@ -5,7 +5,10 @@ const loaders = import.meta.glob<{ default: ComponentType }>('/node_modules/@lik
 const pathOf = (name: string) => `/node_modules/@likec4/icons/${name.replace(':', '/')}.js`
 const loaded = new Map<string, ComponentType>()
 
-export const ICON_NAMES = Object.keys(loaders).map(p => p.split('/').slice(-2).join(':').replace(/\.js$/, ''))
+const all = Object.keys(loaders).map(p => p.split('/').slice(-2).join(':').replace(/\.js$/, ''))
+// tech primeiro; some o logotipo largo (tech:rabbitmq) quando existe o símbolo quadrado (tech:rabbitmq-icon)
+export const ICON_NAMES = [...all.filter(n => n.startsWith('tech:')), ...all.filter(n => !n.startsWith('tech:'))]
+  .filter(n => !all.includes(`${n}-icon`))
 
 export function Icon({ name }: { name?: string }) {
   const [Svg, setSvg] = useState(() => (name ? loaded.get(name) : undefined))

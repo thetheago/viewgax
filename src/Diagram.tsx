@@ -11,7 +11,7 @@ import { nodeTypes } from './nodes'
 import { Panel, type Selection } from './Panel'
 import { Stepper } from './Stepper'
 
-type Props = { doc: Doc; view: View; update: (fn: (d: Doc) => void) => void }
+type Props = { doc: Doc; view: View; update: (fn: (d: Doc) => void) => void; editing: boolean; setEditing: (on: boolean) => void }
 
 // fim de arrasto ou de redimensionamento = edição do usuário que vale salvar
 const isEditEnd = (c: NodeChange) =>
@@ -19,6 +19,8 @@ const isEditEnd = (c: NodeChange) =>
 
 // card copiado com Ctrl+C; vale entre visões
 let copiedId: string | null = null
+// visão de onde o duplo clique veio, para o "← voltar" da visão de detalhe
+let cameFrom: string | null = null
 
 const isTyping = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest('input, textarea, select')
 
@@ -43,13 +45,15 @@ function related(edges: { id: string; source: string; target: string }[], select
   return ids
 }
 
-export function Diagram({ doc, view, update }: Props) {
+export function Diagram({ doc, view, update, editing, setEditing }: Props) {
   const computed = useMemo(() => computeView(doc, view), [doc, view])
   const [nodes, setNodes] = useState<Node<NodeData>[]>(computed.nodes)
   const [selection, setSelection] = useState<Selection>(null)
   const [status, setStatus] = useState('')
   const [pendingSave, setPendingSave] = useState(false)
   const { fitView, screenToFlowPosition } = useReactFlow()
+  const [from] = useState(() => doc.views.find(v => v.id === cameFrom))
+  useEffect(() => void (cameFrom = null), [])
 
   const editView = useCallback((fn: (v: View) => void) => update(d => fn(d.views.find(v => v.id === view.id)!)), [update, view.id])
   const savePositions = useCallback((next: Node[]) => editView(v => void (v.positions = toPositions(next))), [editView])
@@ -158,7 +162,7 @@ export function Diagram({ doc, view, update }: Props) {
   // Delete tira o card desta visão (continua no modelo); Ctrl+C / Ctrl+V duplica o card
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e)) return
+      if (!editing || isTyping(e)) return
       const card = selection?.type === 'node' && doc.elements.some(x => x.id === selection.id) ? selection.id : null
       const ctrl = e.ctrlKey || e.metaKey
       const group = selection?.type === 'node' && view.type === 'view' && view.groups.some(g => g.id === selection.id) ? selection.id : null
@@ -214,29 +218,46 @@ export function Diagram({ doc, view, update }: Props) {
   }))
   const edgeColors = [...new Set(computed.edges.map(e => e.data!.color))]
   const selectEdge = useCallback((id: string) => setSelection({ type: 'edge', id }), [])
+  const openDetail = (id: string) => {
+    const detail = doc.elements.find(e => e.id === id)?.detail
+    if (!detail || detail === view.id) return
+    cameFrom = view.id
+    location.hash = detail
+  }
 
   return (
-    <div className={`diagram ${selection ? 'with-panel' : ''}`}>
+    <div className={`diagram ${selection ? 'with-panel' : ''} ${editing ? 'editing' : 'reading'}`}>
       <div className="toolbar">
+        {from && <a className="crumb" href={`#${from.id}`}>← {from.title || '(sem título)'}</a>}
         <input
           className="title-input"
           value={view.title}
           placeholder="Sem título"
-          title="Clique para renomear"
+          title={editing ? 'Clique para renomear' : undefined}
+          readOnly={!editing}
           onChange={e => editView(v => void (v.title = e.target.value))}
         />
-        <button className="primary" onClick={newCard}>+ Novo card</button>
-        {view.type === 'view' && <button onClick={newGroup}>+ Grupo</button>}
-        <select value="" onChange={e => e.target.value && addExisting(e.target.value)}>
-          <option value="">+ Card existente…</option>
-          {available.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
-        </select>
-        <select value="" onChange={e => e.target.value && suggest(e.target.value as Preset)}>
-          <option value="">Sugerir layout…</option>
-          {Object.entries(PRESETS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </select>
-        <span className="hint">Arraste o ● de um card até outro para {view.type === 'flow' ? 'criar um passo' : 'ligar'}.</span>
+        {editing && (
+          <>
+            <button className="primary" onClick={newCard}>+ Novo card</button>
+            {view.type === 'view' && <button onClick={newGroup}>+ Grupo</button>}
+            <select value="" onChange={e => e.target.value && addExisting(e.target.value)}>
+              <option value="">+ Card existente…</option>
+              {available.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+            </select>
+            <select value="" onChange={e => e.target.value && suggest(e.target.value as Preset)}>
+              <option value="">Sugerir layout…</option>
+              {Object.entries(PRESETS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
+            <span className="hint">Arraste o ● de um card até outro para {view.type === 'flow' ? 'criar um passo' : 'ligar'}.</span>
+          </>
+        )}
         {status && <span className="status">{status}</span>}
+        <label className="mode-switch" title="Alternar entre visualizar e editar">
+          <span className={editing ? '' : 'on'}>Visualizar</span>
+          <input type="checkbox" role="switch" checked={editing} onChange={e => setEditing(e.target.checked)} />
+          <span className={editing ? 'on' : ''}>Editar</span>
+        </label>
       </div>
       <div className="canvas">
         <ArrowMarkers colors={edgeColors} />
@@ -249,6 +270,10 @@ export function Diagram({ doc, view, update }: Props) {
             onNodesChange={onNodesChange}
             onConnectEnd={onConnectEnd}
             onNodeClick={(_, n) => setSelection({ type: 'node', id: n.id })}
+            onNodeDoubleClick={(_, n) => openDetail(n.id)}
+            nodesDraggable={editing}
+            nodesConnectable={editing}
+            zoomOnDoubleClick={false}
             onEdgeClick={(_, e) => setSelection({ type: 'edge', id: e.id })}
             onPaneClick={() => setSelection(null)}
             deleteKeyCode={null}
@@ -260,7 +285,7 @@ export function Diagram({ doc, view, update }: Props) {
         </SelectEdge.Provider>
         {view.type === 'flow' && <Stepper steps={view.steps} selection={selection} onSelect={setSelection} />}
       </div>
-      <Panel key={selection ? `${selection.type}:${selection.id}` : 'none'} doc={doc} view={view} edges={computed.edges} selection={selection} onSelect={setSelection} update={update} />
+      <Panel key={selection ? `${selection.type}:${selection.id}` : 'none'} doc={doc} view={view} edges={computed.edges} selection={selection} onSelect={setSelection} update={update} editing={editing} onOpenDetail={openDetail} />
     </div>
   )
 }

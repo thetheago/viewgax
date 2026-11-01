@@ -33,6 +33,7 @@ export function App() {
   const { doc, status, update, replace } = useDoc()
   const [viewId, setViewId] = useState(hashView)
   const [error, setError] = useState('')
+  const [editing, setEditing] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const onHash = () => setViewId(hashView())
@@ -85,7 +86,7 @@ export function App() {
         {fileActions}
       </nav>
       <ReactFlowProvider key={view.id}>
-        <Diagram doc={doc} view={view} update={update} />
+        <Diagram doc={doc} view={view} update={update} editing={editing && status !== 'sem servidor'} setEditing={setEditing} />
       </ReactFlowProvider>
     </div>
   )

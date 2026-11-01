@@ -14,6 +14,8 @@ export type Element = {
   description?: string
   metadata?: Metadata
   tags?: string[]
+  /** visão que detalha este elemento (duplo clique abre) */
+  detail?: string
 }
 export type Relation = {
   id: string
