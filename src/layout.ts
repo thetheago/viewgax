@@ -1,36 +1,30 @@
-import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js'
+import type { ElkNode } from 'elkjs/lib/elk.bundled.js'
 import type { Edge, Node } from '@xyflow/react'
-
-export type SavedNode = { x: number; y: number; w?: number; h?: number }
-export type Saved = { version: 1; viewId: string; nodes: Record<string, SavedNode> }
+import type { Position } from './doc'
 
 const isContainer = (n: Node) => n.type === 'container'
 const widthOf = (n: Node) => n.width ?? n.measured?.width
 const heightOf = (n: Node) => n.height ?? n.measured?.height
 
-export function toSaved(viewId: string, nodes: Node[]): Saved {
-  const out: Record<string, SavedNode> = {}
+export function toPositions(nodes: Node[]): Record<string, Position> {
+  const out: Record<string, Position> = {}
   for (const n of nodes) {
-    const pos = { x: Math.round(n.position.x), y: Math.round(n.position.y) }
+    const pos = { x: Math.round(n.position.x), y: Math.round(n.position.y), ...(n.parentId ? { p: n.parentId } : {}) }
     out[n.id] = isContainer(n) ? { ...pos, w: Math.round(widthOf(n) ?? 0), h: Math.round(heightOf(n) ?? 0) } : pos
   }
-  return { version: 1, viewId, nodes: out }
+  return out
 }
 
-/** Salvo vence; quem não está no salvo fica na posição automática; ids que saíram do modelo são ignorados. */
-export function applySaved<T extends Node>(nodes: T[], saved?: Saved | null): T[] {
-  if (!saved) return nodes
-  return nodes.map(n => {
-    const s = saved.nodes[n.id]
-    if (!s) return n
-    const size = s.w && s.h ? { width: s.w, height: s.h } : {}
-    return { ...n, position: { x: s.x, y: s.y }, ...size }
-  })
-}
+/** Posição salva só vale se o card continua no mesmo pai. */
+export const hasValidPosition = (saved: Record<string, Position>, n: Node) =>
+  saved[n.id] !== undefined && saved[n.id].p === n.parentId
 
-export function isSaved(value: unknown): value is Saved {
-  const v = value as Saved
-  return v?.version === 1 && typeof v.viewId === 'string' && typeof v.nodes === 'object' && v.nodes !== null
+/** Quem não tem posição salva recebe a do ELK; os salvos ficam onde estão. */
+export async function fillMissing<T extends Node>(nodes: T[], edges: Edge[], saved: Record<string, Position>, columns: string[]): Promise<T[]> {
+  const valid = (n: Node) => hasValidPosition(saved, n)
+  if (nodes.every(valid)) return nodes
+  const auto = new Map((await autoLayout(nodes, edges, 'layered', columns)).map(n => [n.id, n]))
+  return nodes.map(n => (valid(n) ? n : auto.get(n.id)!))
 }
 
 export type Preset = 'layered' | 'grid'
@@ -48,7 +42,6 @@ const OPTIONS: Record<Preset, Record<string, string>> = {
 }
 // espaço para o título do container
 const PADDING = '[top=56,left=24,bottom=24,right=24]'
-const elk = new ELK()
 
 /** columns: ids de nós raiz na ordem esquerda → direita (os grupos da view, como no .c4). */
 export async function autoLayout<T extends Node>(nodes: T[], edges: Edge[], preset: Preset, columns: string[] = []): Promise<T[]> {
@@ -81,7 +74,9 @@ export async function autoLayout<T extends Node>(nodes: T[], edges: Edge[], pres
     children: roots,
     edges: layoutEdges.map(e => ({ id: e.id, sources: [e.source], targets: [e.target] })),
   }
-  const result = await elk.layout(graph)
+  // ELK pesa 1,6 MB: só baixa quando algum layout é calculado
+  const { default: ELK } = await import('elkjs/lib/elk.bundled.js')
+  const result = await new ELK().layout(graph)
 
   const placed = new Map<string, ElkNode>()
   const walk = (list: ElkNode[] = []) => list.forEach(n => (placed.set(n.id, n), walk(n.children)))

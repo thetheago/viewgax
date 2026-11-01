@@ -1,0 +1,2417 @@
+{
+  "version": 1,
+  "elements": [
+    {
+      "id": "colaborador",
+      "title": "Colaborador",
+      "kind": "actor",
+      "color": "green",
+      "icon": "bootstrap:person",
+      "description": "Bate o ponto (web, app single, app multi, relógio)"
+    },
+    {
+      "id": "gestor",
+      "title": "Gestor / RH",
+      "kind": "actor",
+      "color": "green",
+      "icon": "bootstrap:people",
+      "description": "Usa o painel: espelho, ajustes, importação de AFD, configurações"
+    },
+    {
+      "id": "canais",
+      "title": "Canais de batida",
+      "kind": "system",
+      "color": "primary",
+      "icon": "bootstrap:phone",
+      "description": "Por onde a batida nasce"
+    },
+    {
+      "id": "webAgent",
+      "title": "Agente de integração",
+      "kind": "system",
+      "color": "primary",
+      "icon": "bootstrap:router"
+    },
+    {
+      "id": "fortime",
+      "title": "Fortime",
+      "kind": "system",
+      "color": "primary",
+      "icon": "bootstrap:building",
+      "description": "Monólito. Dono do schema dos bancos de ponto."
+    },
+    {
+      "id": "punchRegister",
+      "title": "punch_register",
+      "kind": "system",
+      "color": "primary",
+      "icon": "bootstrap:fingerprint",
+      "technology": "Hyperf 3.1 / Swoole",
+      "description": "Registro de ponto: persiste, reconcilia o dia, pede o cálculo e gera a linha fiscal do AFD"
+    },
+    {
+      "id": "clockWise",
+      "title": "clock_wise",
+      "kind": "system",
+      "color": "primary",
+      "icon": "bootstrap:calculator",
+      "technology": "Hyperf / Swoole :9501",
+      "description": "Motor de cálculo de horas"
+    },
+    {
+      "id": "facialApi",
+      "title": "facial-api",
+      "kind": "system",
+      "color": "primary",
+      "icon": "bootstrap:person-bounding-box"
+    },
+    {
+      "id": "clienteIntegrado",
+      "title": "Sistema do cliente",
+      "kind": "external",
+      "color": "muted",
+      "icon": "bootstrap:globe",
+      "description": "Recebe o webhook de marcação"
+    },
+    {
+      "id": "geocoding",
+      "title": "Geocoding (HERE / Geoapify / Maps)",
+      "kind": "external",
+      "color": "muted",
+      "icon": "bootstrap:geo-alt",
+      "description": "Endereço reverso da batida, em cadeia de fallback"
+    },
+    {
+      "id": "smtpRevenda",
+      "title": "SMTP da revenda",
+      "kind": "external",
+      "color": "muted",
+      "icon": "bootstrap:envelope",
+      "description": "advanced_resale_config — e-mail de webhook desativado"
+    },
+    {
+      "id": "infra",
+      "title": "Infra compartilhada",
+      "kind": "system",
+      "color": "primary",
+      "description": "Broker, bancos, cache e bucket usados por mais de um sistema"
+    },
+    {
+      "id": "canais.painel",
+      "parent": "canais",
+      "title": "Painel Web",
+      "kind": "ui",
+      "color": "primary",
+      "icon": "tech:react",
+      "technology": "React + Vite",
+      "description": "Ponto web do colaborador e operação do RH"
+    },
+    {
+      "id": "canais.appSingle",
+      "parent": "canais",
+      "title": "App Single",
+      "kind": "mobile",
+      "color": "primary",
+      "icon": "bootstrap:phone",
+      "technology": "Mobile"
+    },
+    {
+      "id": "canais.appMulti",
+      "parent": "canais",
+      "title": "App Multi",
+      "kind": "mobile",
+      "color": "primary",
+      "icon": "bootstrap:tablet",
+      "technology": "Mobile (quiosque)"
+    },
+    {
+      "id": "canais.relogio",
+      "parent": "canais",
+      "title": "Relógio de ponto (REP)",
+      "kind": "system",
+      "color": "primary",
+      "icon": "bootstrap:stopwatch",
+      "description": "Equipamento físico; REP-C tem AFD próprio"
+    },
+    {
+      "id": "webAgent.agent",
+      "parent": "webAgent",
+      "title": "Web Agent",
+      "kind": "service",
+      "color": "primary",
+      "icon": "tech:dotnet",
+      "technology": ".NET 9 — instalado no cliente",
+      "description": "Lê o AFD dos relógios na rede local"
+    },
+    {
+      "id": "webAgent.hub",
+      "parent": "webAgent",
+      "title": "HUB",
+      "kind": "service",
+      "color": "primary",
+      "icon": "tech:dotnet",
+      "technology": ".NET 9 — SignalR / MassTransit",
+      "description": "Ponte entre o backend (RabbitMQ) e os agentes (SignalR)"
+    },
+    {
+      "id": "webAgent.legacyAgent",
+      "parent": "webAgent",
+      "title": "Agente legado",
+      "kind": "service",
+      "color": "primary",
+      "icon": "bootstrap:hdd",
+      "technology": "POST /api/integrations/time/cards",
+      "description": "Ainda manda por HTTP; o monólito republica na mesma routing key do hub"
+    },
+    {
+      "id": "fortime.backend",
+      "parent": "fortime",
+      "title": "Monólito (backend)",
+      "kind": "service",
+      "color": "primary",
+      "icon": "tech:laravel",
+      "technology": "Laravel 11 / PHP 8.3",
+      "description": "API principal. Duas implantações do mesmo código:\nfortime (tenancy off) e tenants (stancl, DB por tenant).\nDistribui as URLs do punch_register via feature flag."
+    },
+    {
+      "id": "fortime.reverb",
+      "parent": "fortime",
+      "title": "Reverb",
+      "kind": "service",
+      "color": "primary",
+      "icon": "tech:websocket",
+      "technology": "Laravel Reverb (WSS :8989)",
+      "description": "Tempo real para o painel"
+    },
+    {
+      "id": "fortime.cwConnector",
+      "parent": "fortime",
+      "title": "cw-connector",
+      "kind": "service",
+      "color": "primary",
+      "icon": "tech:php",
+      "technology": "PHP lib",
+      "description": "Cliente HTTP do clock_wise: envia lote, consulta status e resultado"
+    },
+    {
+      "id": "fortime.postgresAudit",
+      "parent": "fortime",
+      "title": "Postgres — auditoria",
+      "kind": "database",
+      "color": "slate",
+      "icon": "tech:postgresql",
+      "technology": "Postgres 16 + pg_partman"
+    },
+    {
+      "id": "punchRegister.api",
+      "parent": "punchRegister",
+      "title": "API /point/*",
+      "kind": "service",
+      "color": "primary",
+      "icon": "tech:php",
+      "technology": "punch_register · HTTP :9501 — X-Tenant-Id, sem JWT",
+      "description": "POST /point/web · /point/mobile/single · /point/mobile/multi\nPOST /point/photo · /point/reconcile · /point/afd/pending"
+    },
+    {
+      "id": "punchRegister.postRegister",
+      "parent": "punchRegister",
+      "title": "Pós-registro (defer)",
+      "kind": "worker",
+      "color": "indigo",
+      "icon": "bootstrap:cpu",
+      "technology": "punch_register · defer() no mesmo worker",
+      "description": "webhook → endereço → solicitação → descarte pós-cálculo → pré-assinalado\n→ dedup → descarte exceção → reorder → ajustes → cálculo do dia → linha AFD"
+    },
+    {
+      "id": "punchRegister.webhookConsumer",
+      "parent": "punchRegister",
+      "title": "WebhookConsumer",
+      "kind": "worker",
+      "color": "indigo",
+      "icon": "tech:rabbitmq",
+      "technology": "punch_register · consumer (1)",
+      "description": "Relê a linha e envia o envelope ao cliente. Falha de entrega = ACK, sem DLQ."
+    },
+    {
+      "id": "punchRegister.afdLineConsumer",
+      "parent": "punchRegister",
+      "title": "AfdLineConsumer",
+      "kind": "worker",
+      "color": "indigo",
+      "icon": "tech:rabbitmq",
+      "technology": "punch_register · consumer (2)",
+      "description": "Ponto único da linha fiscal (registro tipo 7). Falha = DROP → DLQ."
+    },
+    {
+      "id": "punchRegister.afdImportConsumer",
+      "parent": "punchRegister",
+      "title": "AfdImportConsumer",
+      "kind": "worker",
+      "color": "indigo",
+      "icon": "tech:rabbitmq",
+      "technology": "punch_register · consumer (1)",
+      "description": "Importa AFD de relógio (AfdImportManager). Resultado em client_import_files. ACK sempre."
+    },
+    {
+      "id": "punchRegister.agentPunchesConsumer",
+      "parent": "punchRegister",
+      "title": "AgentPunchesConsumer",
+      "kind": "worker",
+      "color": "indigo",
+      "icon": "tech:rabbitmq",
+      "technology": "punch_register · consumer (1)",
+      "description": "Único gravador das batidas dos agentes. Grava por pacote, anota no Redis, cursor anda com o lote completo. ACK sempre."
+    },
+    {
+      "id": "punchRegister.exceptionCron",
+      "parent": "punchRegister",
+      "title": "Cron ponto por exceção",
+      "kind": "worker",
+      "color": "indigo",
+      "icon": "bootstrap:clock",
+      "technology": "punch_register · crontab * * * * *",
+      "description": "Materializa batidas agendadas via o mesmo RegisterPointUseCase"
+    },
+    {
+      "id": "punchRegister.calcPendingCron",
+      "parent": "punchRegister",
+      "title": "Cron cálculo pendente",
+      "kind": "worker",
+      "color": "indigo",
+      "icon": "bootstrap:clock",
+      "technology": "punch_register · crontab * * * * *",
+      "description": "Republica pedidos de cálculo guardados no Redis (pr:calculate-day:pending) quando o broker volta"
+    },
+    {
+      "id": "clockWise.cwApi",
+      "parent": "clockWise",
+      "title": "API /batch/*",
+      "kind": "service",
+      "color": "primary",
+      "icon": "tech:php",
+      "technology": "clock_wise · HTTP + OAuth",
+      "description": "POST /batch/create, /batch/create-in-queue · GET /batch/find/{id}, /batch/result/{id}"
+    },
+    {
+      "id": "clockWise.cwConsumer",
+      "parent": "clockWise",
+      "title": "Consumer de cálculo",
+      "kind": "worker",
+      "color": "indigo",
+      "icon": "tech:rabbitmq",
+      "technology": "clock_wise · consumer",
+      "description": "Consome clock-wise.calculate.punch e .system (não está na main local do clock_wise)",
+      "tags": [
+        "openQuestion"
+      ]
+    },
+    {
+      "id": "facialApi.facialCore",
+      "parent": "facialApi",
+      "title": "facial-api core",
+      "kind": "service",
+      "color": "primary",
+      "icon": "tech:php",
+      "technology": "Hyperf :9501 + JWT"
+    },
+    {
+      "id": "facialApi.deepface",
+      "parent": "facialApi",
+      "title": "DeepFace checker",
+      "kind": "worker",
+      "color": "indigo",
+      "icon": "tech:python",
+      "technology": "Python, TCP socket"
+    },
+    {
+      "id": "infra.rabbit",
+      "parent": "infra",
+      "title": "RabbitMQ",
+      "kind": "broker",
+      "color": "amber",
+      "icon": "tech:rabbitmq",
+      "technology": "RabbitMQ 3"
+    },
+    {
+      "id": "infra.redis",
+      "parent": "infra",
+      "title": "Redis",
+      "kind": "database",
+      "color": "slate",
+      "icon": "tech:redis",
+      "technology": "Redis",
+      "description": "Locks (SET NX PX), cache de tenant/webhook/geo, lotes do agente, cálculo pendente"
+    },
+    {
+      "id": "infra.mysqlTenant",
+      "parent": "infra",
+      "title": "MySQL — DB do tenant",
+      "kind": "database",
+      "color": "slate",
+      "icon": "tech:mysql",
+      "technology": "Mysql",
+      "description": "time_cards, time_card_hour, saved_calculations, body_tax_file, point_clock… (milhões de linhas)"
+    },
+    {
+      "id": "infra.mysqlLandlord",
+      "parent": "infra",
+      "title": "MySQL — landlord",
+      "kind": "database",
+      "color": "slate",
+      "icon": "tech:mysql",
+      "technology": "Mysql",
+      "description": "tenants, environments (config por tenant)"
+    },
+    {
+      "id": "infra.r2",
+      "parent": "infra",
+      "title": "Cloudflare R2",
+      "kind": "bucket",
+      "color": "secondary",
+      "icon": "tech:cloudflare",
+      "technology": "Cloudflare",
+      "description": "Fotos da batida (path = contrato do monólito), arquivos de AFD, releases do agente"
+    },
+    {
+      "id": "infra.rabbit.exPunch",
+      "parent": "infra.rabbit",
+      "title": "exchange punch-register",
+      "kind": "queue",
+      "color": "amber",
+      "technology": "topic, durable",
+      "description": "Publicação com mandatory + confirm: sem fila ligada → UnroutableMessageException"
+    },
+    {
+      "id": "infra.rabbit.qWebhook",
+      "parent": "infra.rabbit",
+      "title": "punch-register.webhook",
+      "kind": "queue",
+      "color": "amber",
+      "metadata": {
+        "routing_key": "punch-register.webhook",
+        "payload": "{ tenant_id, kind: punch|complement|config_changed, id, global_account_id }",
+        "ack": "ACK sempre (falha de entrega conta em webhooks.tries)"
+      },
+      "tags": [
+        "webhook"
+      ]
+    },
+    {
+      "id": "infra.rabbit.qAfdLine",
+      "parent": "infra.rabbit",
+      "title": "punch-register.afd-line",
+      "kind": "queue",
+      "color": "amber",
+      "metadata": {
+        "routing_key": "punch-register.afd-line",
+        "payload": "{ tenant_id, point_register_id, client_id }",
+        "headers": "correlation_id, traceparent (W3C)",
+        "ack": "DROP → x-dead-letter-routing-key punch-register.afd-line.dead"
+      },
+      "tags": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "infra.rabbit.qAfdLineDead",
+      "parent": "infra.rabbit",
+      "title": "punch-register.afd-line.dead",
+      "kind": "queue",
+      "color": "amber",
+      "description": "DLQ — sem dreno automático; reprocesso via /point/afd/pending",
+      "tags": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "infra.rabbit.qAfdImport",
+      "parent": "infra.rabbit",
+      "title": "punch-register.afd-import",
+      "kind": "queue",
+      "color": "amber",
+      "metadata": {
+        "routing_key": "punch-register.afd-import",
+        "payload": "{ client_import_file_id, new_afd, filter_client }",
+        "ack": "ACK sempre (erro gravado p/ o cliente reenviar pela tela)"
+      },
+      "tags": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "infra.rabbit.exCalc",
+      "parent": "infra.rabbit",
+      "title": "exchange clock-wise",
+      "kind": "queue",
+      "color": "amber",
+      "technology": "topic, durable — do clock_wise",
+      "description": "Declarada também pelo ConfirmedProducer do punch_register (precisa bater com a do clock_wise)",
+      "tags": [
+        "calculo"
+      ]
+    },
+    {
+      "id": "infra.rabbit.qCalcPunch",
+      "parent": "infra.rabbit",
+      "title": "clock-wise.calculate.punch",
+      "kind": "queue",
+      "color": "amber",
+      "metadata": {
+        "routing_key": "clock-wise.calculate.punch",
+        "payload": "{ tenant_id, employee_id, global_account_id, day, time_card_hour_id, origin: \"punch\" }",
+        "falha": "sem broker ou sem fila → guarda no Redis e o cron republica"
+      },
+      "tags": [
+        "calculo"
+      ]
+    },
+    {
+      "id": "infra.rabbit.qCalcSystem",
+      "parent": "infra.rabbit",
+      "title": "clock-wise.calculate.system",
+      "kind": "queue",
+      "color": "amber",
+      "metadata": {
+        "routing_key": "clock-wise.calculate.system",
+        "payload": "{ tenant_id, employee_id, global_account_id, day, origin, correlation_id }"
+      },
+      "tags": [
+        "calculo"
+      ]
+    },
+    {
+      "id": "infra.rabbit.exApp",
+      "parent": "infra.rabbit",
+      "title": "exchange app-exchange",
+      "kind": "queue",
+      "color": "amber",
+      "technology": "topic — broker do agente",
+      "description": "Ida hub-{hubId}-<ação> · volta {prefix}-<ação>-request|response",
+      "tags": [
+        "agente"
+      ]
+    },
+    {
+      "id": "infra.rabbit.qAgentPunches",
+      "parent": "infra.rabbit",
+      "title": "punch-register.agent-punches",
+      "kind": "queue",
+      "color": "amber",
+      "technology": "durável",
+      "metadata": {
+        "routing_key": "{prefix}-get-punches-response (um binding por prefixo de AMQP_AGENT_QUEUE_PREFIXES)",
+        "ack": "ACK sempre, sem DLQ (pacote que falha não anda o cursor; a coleta reenvia)"
+      },
+      "tags": [
+        "agente"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "id": "9sze8l",
+      "source": "colaborador",
+      "target": "canais.painel",
+      "title": "bate ponto web"
+    },
+    {
+      "id": "rsrakw",
+      "source": "colaborador",
+      "target": "canais.appSingle",
+      "title": "bate ponto"
+    },
+    {
+      "id": "owxk4",
+      "source": "colaborador",
+      "target": "canais.appMulti",
+      "title": "bate ponto (quiosque)"
+    },
+    {
+      "id": "1esxjco",
+      "source": "colaborador",
+      "target": "canais.relogio",
+      "title": "bate ponto"
+    },
+    {
+      "id": "1nfguxb",
+      "source": "gestor",
+      "target": "canais.painel",
+      "title": "opera o painel, sobe AFD"
+    },
+    {
+      "id": "b8oshe",
+      "source": "canais.painel",
+      "target": "fortime.backend",
+      "title": "API REST",
+      "kind": "http",
+      "technology": "HTTPS + JWT",
+      "description": "Inclui as URLs do punch_register por feature flag (FeatureFlagController)"
+    },
+    {
+      "id": "1nxvb89",
+      "source": "canais.appSingle",
+      "target": "fortime.backend",
+      "title": "API REST (inclui upload genérico /api/mobile/documents/upload)",
+      "kind": "http"
+    },
+    {
+      "id": "1236du3",
+      "source": "canais.appMulti",
+      "target": "fortime.backend",
+      "title": "API REST",
+      "kind": "http"
+    },
+    {
+      "id": "9irhk6",
+      "source": "canais.painel",
+      "target": "fortime.reverb",
+      "title": "WebSocket",
+      "kind": "http",
+      "technology": "WSS"
+    },
+    {
+      "id": "kj9fws",
+      "source": "canais.painel",
+      "target": "punchRegister.api",
+      "title": "POST /point/web, /point/photo",
+      "kind": "http",
+      "technology": "HTTP + X-Tenant-Id",
+      "description": "Responde 201 logo após persistir; o resto roda no defer"
+    },
+    {
+      "id": "a5f80b",
+      "source": "canais.appSingle",
+      "target": "punchRegister.api",
+      "title": "POST /point/mobile/single",
+      "kind": "http"
+    },
+    {
+      "id": "1yh03d",
+      "source": "canais.appMulti",
+      "target": "punchRegister.api",
+      "title": "POST /point/mobile/multi, /point/photo",
+      "kind": "http",
+      "description": "App ainda manda point_records aninhado e sem user_id (pendente)",
+      "tags": [
+        "openQuestion"
+      ]
+    },
+    {
+      "id": "k4tarm",
+      "source": "webAgent.agent",
+      "target": "canais.relogio",
+      "title": "lê o AFD a partir do NSR do cursor",
+      "kind": "http",
+      "technology": "HTTP na LAN"
+    },
+    {
+      "id": "175zng7",
+      "source": "webAgent.hub",
+      "target": "webAgent.agent",
+      "title": "SignalR (pede batidas, envia colaboradores/relógios)",
+      "kind": "http",
+      "technology": "WebSocket + JWT RS256 (emitido pelo backend)"
+    },
+    {
+      "id": "tlb7xw",
+      "source": "webAgent.agent",
+      "target": "webAgent.hub",
+      "title": "pacotes de batidas",
+      "kind": "http"
+    },
+    {
+      "id": "1b3hmwk",
+      "source": "webAgent.legacyAgent",
+      "target": "canais.relogio",
+      "title": "lê batidas",
+      "kind": "http"
+    },
+    {
+      "id": "zpjxqr",
+      "source": "webAgent.legacyAgent",
+      "target": "fortime.backend",
+      "title": "POST /api/integrations/time/cards",
+      "kind": "http"
+    },
+    {
+      "id": "1cjvq1y",
+      "source": "fortime.backend",
+      "target": "punchRegister.api",
+      "title": "POST /point/reconcile",
+      "kind": "http",
+      "description": "Reconciliar o dia depois de ajuste no monólito"
+    },
+    {
+      "id": "1atnu4u",
+      "source": "fortime.backend",
+      "target": "punchRegister.api",
+      "title": "POST /point/afd/pending",
+      "kind": "http",
+      "description": "Gera linhas fiscais pendentes (fallback da fila)",
+      "tags": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "1wobcoh",
+      "source": "fortime.backend",
+      "target": "infra.rabbit.exPunch",
+      "title": "publica webhook",
+      "kind": "async",
+      "technology": "AMQP mandatory + confirm",
+      "metadata": {
+        "routing_key": "punch-register.webhook",
+        "payload": "{ tenant_id, kind, id, global_account_id }",
+        "filtro": "só publica se a conta tem webhook ativo (exists() sem cache); config_changed sempre"
+      },
+      "tags": [
+        "webhook"
+      ]
+    },
+    {
+      "id": "1rl0mxe",
+      "source": "fortime.backend",
+      "target": "infra.rabbit.exPunch",
+      "title": "publica linha fiscal",
+      "kind": "async",
+      "description": "TimeCardHourObserver, após o commit",
+      "metadata": {
+        "routing_key": "punch-register.afd-line",
+        "payload": "{ tenant_id, point_register_id, client_id }"
+      },
+      "tags": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "b1isdv",
+      "source": "fortime.backend",
+      "target": "infra.rabbit.exPunch",
+      "title": "publica importação de AFD",
+      "kind": "async",
+      "description": "AfdImportDispatcher: manual (tela) ou agendada. Sobe o arquivo no R2 e publica só o id",
+      "metadata": {
+        "routing_key": "punch-register.afd-import",
+        "payload": "{ client_import_file_id, new_afd, filter_client }"
+      },
+      "tags": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "mpz8ux",
+      "source": "fortime.backend",
+      "target": "infra.rabbit.exCalc",
+      "title": "pede recálculo (Recalculation::enqueue)",
+      "kind": "async",
+      "metadata": {
+        "routing_key": "clock-wise.calculate.system"
+      },
+      "tags": [
+        "calculo"
+      ]
+    },
+    {
+      "id": "96no38",
+      "source": "fortime.backend",
+      "target": "infra.rabbit.exApp",
+      "title": "comandos para o HUB",
+      "kind": "async",
+      "description": "Cron agent:dispatch-scheduled-punches (30 min) pede batidas com o cursor de cada relógio",
+      "metadata": {
+        "routing_keys": "hub-{hubId}-pair-company · hub-{hubId}-add-or-update-employees · hub-{hubId}-add-or-update-devices · hub-{hubId}-get-punches"
+      },
+      "tags": [
+        "agente"
+      ]
+    },
+    {
+      "id": "ryqyxj",
+      "source": "fortime.backend",
+      "target": "infra.rabbit.exApp",
+      "title": "republica o agente legado",
+      "kind": "async",
+      "metadata": {
+        "routing_key": "{prefix}-get-punches-response (lote de 1 pacote)"
+      },
+      "tags": [
+        "agente"
+      ]
+    },
+    {
+      "id": "q6kxmt",
+      "source": "punchRegister.postRegister",
+      "target": "infra.rabbit.exPunch",
+      "title": "publica webhook (1º passo do defer)",
+      "kind": "async",
+      "metadata": {
+        "routing_key": "punch-register.webhook",
+        "payload": "{ tenant_id, kind: punch, id, global_account_id }"
+      },
+      "tags": [
+        "webhook"
+      ]
+    },
+    {
+      "id": "13w3ya2",
+      "source": "punchRegister.postRegister",
+      "target": "infra.rabbit.exPunch",
+      "title": "publica linha fiscal",
+      "kind": "async",
+      "description": "Toda batida criada no request cujo SourceType gera NSR (relógio REP-C não)",
+      "metadata": {
+        "routing_key": "punch-register.afd-line",
+        "payload": "{ tenant_id, point_register_id, client_id }"
+      },
+      "tags": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "o4egh2",
+      "source": "punchRegister.postRegister",
+      "target": "infra.rabbit.exCalc",
+      "title": "pede o cálculo do dia",
+      "kind": "async",
+      "description": "Depois de reconciliar, antes da linha AFD. Batida após cálculo bloqueado não publica.",
+      "metadata": {
+        "routing_key": "clock-wise.calculate.punch"
+      },
+      "tags": [
+        "calculo"
+      ]
+    },
+    {
+      "id": "1v0l0",
+      "source": "punchRegister.afdImportConsumer",
+      "target": "infra.rabbit.exPunch",
+      "title": "linha fiscal dos pré-assinalados",
+      "kind": "async",
+      "tags": [
+        "fiscal"
+      ]
+    },
+    {
+      "id": "19i58oo",
+      "source": "punchRegister.afdImportConsumer",
+      "target": "infra.rabbit.exCalc",
+      "title": "cálculo dos dias importados",
+      "kind": "async",
+      "tags": [
+        "calculo"
+      ]
+    },
+    {
+      "id": "1hx7rif",
+      "source": "punchRegister.agentPunchesConsumer",
+      "target": "infra.rabbit.exPunch",
+      "title": "webhook + linha fiscal (iDFace/iDFlex)",
+      "kind": "async",
+      "description": "Relógio REP-C (RELOGIO) não gera linha fiscal do sistema"
+    },
+    {
+      "id": "132wjez",
+      "source": "punchRegister.agentPunchesConsumer",
+      "target": "infra.rabbit.exCalc",
+      "title": "cálculo do dia (1x por cartão)",
+      "kind": "async",
+      "tags": [
+        "calculo"
+      ]
+    },
+    {
+      "id": "o40716",
+      "source": "punchRegister.exceptionCron",
+      "target": "infra.rabbit.exCalc",
+      "title": "cálculo do dia (após o commit)",
+      "kind": "async",
+      "tags": [
+        "calculo"
+      ]
+    },
+    {
+      "id": "1b7ad26",
+      "source": "punchRegister.calcPendingCron",
+      "target": "infra.rabbit.exCalc",
+      "title": "republica pendentes",
+      "kind": "async",
+      "tags": [
+        "calculo"
+      ]
+    },
+    {
+      "id": "1me1icr",
+      "source": "infra.rabbit.exPunch",
+      "target": "infra.rabbit.qWebhook",
+      "title": "punch-register.webhook",
+      "kind": "async"
+    },
+    {
+      "id": "1ls5wj8",
+      "source": "infra.rabbit.exPunch",
+      "target": "infra.rabbit.qAfdLine",
+      "title": "punch-register.afd-line",
+      "kind": "async"
+    },
+    {
+      "id": "1455sbs",
+      "source": "infra.rabbit.exPunch",
+      "target": "infra.rabbit.qAfdImport",
+      "title": "punch-register.afd-import",
+      "kind": "async"
+    },
+    {
+      "id": "1jp4slb",
+      "source": "infra.rabbit.qAfdLine",
+      "target": "infra.rabbit.qAfdLineDead",
+      "title": "dead-letter",
+      "kind": "async"
+    },
+    {
+      "id": "7hxkyn",
+      "source": "infra.rabbit.exCalc",
+      "target": "infra.rabbit.qCalcPunch",
+      "title": "clock-wise.calculate.punch",
+      "kind": "async"
+    },
+    {
+      "id": "1i0gizf",
+      "source": "infra.rabbit.exCalc",
+      "target": "infra.rabbit.qCalcSystem",
+      "title": "clock-wise.calculate.system",
+      "kind": "async"
+    },
+    {
+      "id": "vn6q37",
+      "source": "infra.rabbit.exApp",
+      "target": "infra.rabbit.qAgentPunches",
+      "title": "{prefix}-get-punches-response",
+      "kind": "async"
+    },
+    {
+      "id": "sxlqlg",
+      "source": "infra.rabbit.qWebhook",
+      "target": "punchRegister.webhookConsumer",
+      "title": "consome",
+      "kind": "async"
+    },
+    {
+      "id": "pe28pv",
+      "source": "infra.rabbit.qAfdLine",
+      "target": "punchRegister.afdLineConsumer",
+      "title": "consome",
+      "kind": "async"
+    },
+    {
+      "id": "iecqqq",
+      "source": "infra.rabbit.qAfdImport",
+      "target": "punchRegister.afdImportConsumer",
+      "title": "consome",
+      "kind": "async"
+    },
+    {
+      "id": "dwzkip",
+      "source": "infra.rabbit.qAgentPunches",
+      "target": "punchRegister.agentPunchesConsumer",
+      "title": "consome",
+      "kind": "async"
+    },
+    {
+      "id": "915dao",
+      "source": "infra.rabbit.qCalcPunch",
+      "target": "clockWise.cwConsumer",
+      "title": "consome",
+      "kind": "async"
+    },
+    {
+      "id": "1ngrsu2",
+      "source": "infra.rabbit.qCalcSystem",
+      "target": "clockWise.cwConsumer",
+      "title": "consome",
+      "kind": "async"
+    },
+    {
+      "id": "n5p0ua",
+      "source": "infra.rabbit.exApp",
+      "target": "webAgent.hub",
+      "title": "entrega comandos",
+      "kind": "async"
+    },
+    {
+      "id": "169jdk8",
+      "source": "webAgent.hub",
+      "target": "infra.rabbit.exApp",
+      "title": "respostas",
+      "kind": "async",
+      "metadata": {
+        "routing_keys": "{prefix}-pair-company-request · {prefix}-get-punches-response · {prefix}-get-error-logs-response",
+        "prefix": "fortime | revendas | hm | slytherin… (QueuePrefixEnum ↔ QueuePrefixes.cs)"
+      },
+      "tags": [
+        "agente"
+      ]
+    },
+    {
+      "id": "ggdx4l",
+      "source": "infra.rabbit.exApp",
+      "target": "fortime.backend",
+      "title": "pair-company-request, get-error-logs-response",
+      "kind": "async",
+      "technology": "rabbitmq:consume-all",
+      "tags": [
+        "agente"
+      ]
+    },
+    {
+      "id": "m4zdob",
+      "source": "punchRegister.api",
+      "target": "punchRegister.postRegister",
+      "title": "defer() após 201"
+    },
+    {
+      "id": "qcmfgj",
+      "source": "punchRegister.calcPendingCron",
+      "target": "infra.redis",
+      "title": "lê pr:calculate-day:pending (HDEL / HSETNX)",
+      "kind": "db"
+    },
+    {
+      "id": "71m8rv",
+      "source": "punchRegister.webhookConsumer",
+      "target": "clienteIntegrado",
+      "title": "POST envelope { method, url, body{9 campos} }",
+      "kind": "http",
+      "technology": "Guzzle — 3 tentativas, 5s timeout, backoff 0.5s/1s",
+      "description": "Esgotou → webhooks.tries++ (WHERE tries < 3); na 3ª desativa e avisa por e-mail",
+      "tags": [
+        "webhook"
+      ]
+    },
+    {
+      "id": "hw8h62",
+      "source": "punchRegister.webhookConsumer",
+      "target": "smtpRevenda",
+      "title": "e-mail: webhook desativado",
+      "tags": [
+        "webhook"
+      ]
+    },
+    {
+      "id": "1irnekl",
+      "source": "punchRegister.postRegister",
+      "target": "geocoding",
+      "title": "endereço reverso",
+      "kind": "http"
+    },
+    {
+      "id": "1fx182c",
+      "source": "punchRegister.api",
+      "target": "infra.r2",
+      "title": "PUT foto da batida",
+      "kind": "http",
+      "description": "BucketPaths::getDocumentPath + BucketFileNames::date() — contrato com o monólito"
+    },
+    {
+      "id": "cep00z",
+      "source": "punchRegister.afdImportConsumer",
+      "target": "infra.r2",
+      "title": "lê e remove o arquivo de AFD",
+      "kind": "http"
+    },
+    {
+      "id": "1xh4ykk",
+      "source": "punchRegister.api",
+      "target": "infra.mysqlTenant",
+      "title": "INSERT time_card_hour",
+      "kind": "db"
+    },
+    {
+      "id": "174anol",
+      "source": "punchRegister.postRegister",
+      "target": "infra.mysqlTenant",
+      "title": "reconcilia o dia",
+      "kind": "db"
+    },
+    {
+      "id": "fhs9c6",
+      "source": "punchRegister.afdLineConsumer",
+      "target": "infra.mysqlTenant",
+      "title": "NSR + hash + body_tax_file (lock 5s)",
+      "kind": "db"
+    },
+    {
+      "id": "s29j92",
+      "source": "punchRegister.afdImportConsumer",
+      "target": "infra.mysqlTenant",
+      "title": "batidas + status em client_import_files",
+      "kind": "db"
+    },
+    {
+      "id": "r5v7za",
+      "source": "punchRegister.agentPunchesConsumer",
+      "target": "infra.mysqlTenant",
+      "title": "batidas + cursor point_clock.sequential_nsr",
+      "kind": "db"
+    },
+    {
+      "id": "1iowb5i",
+      "source": "punchRegister.agentPunchesConsumer",
+      "target": "infra.redis",
+      "title": "anota pacote do lote (RedisAgentBatchTracker)",
+      "kind": "db"
+    },
+    {
+      "id": "13ht2hi",
+      "source": "punchRegister.exceptionCron",
+      "target": "infra.mysqlTenant",
+      "title": "agendas vencidas (lockForUpdate)",
+      "kind": "db"
+    },
+    {
+      "id": "2qik16",
+      "source": "punchRegister",
+      "target": "infra.mysqlLandlord",
+      "title": "resolve tenant e config (environments)",
+      "kind": "db"
+    },
+    {
+      "id": "u06phm",
+      "source": "punchRegister",
+      "target": "infra.redis",
+      "title": "locks (AFD, assinatura, timecard), cache",
+      "kind": "db"
+    },
+    {
+      "id": "sgqlhb",
+      "source": "fortime.backend",
+      "target": "infra.mysqlTenant",
+      "title": "dono do schema",
+      "kind": "db"
+    },
+    {
+      "id": "wpi1d4",
+      "source": "fortime.backend",
+      "target": "infra.mysqlLandlord",
+      "title": "tenancy (stancl)",
+      "kind": "db"
+    },
+    {
+      "id": "biahfw",
+      "source": "fortime.backend",
+      "target": "fortime.postgresAudit",
+      "title": "trilha de auditoria",
+      "kind": "db"
+    },
+    {
+      "id": "12expm6",
+      "source": "fortime.backend",
+      "target": "infra.redis",
+      "title": "cache, filas Horizon",
+      "kind": "db"
+    },
+    {
+      "id": "x2g1ac",
+      "source": "fortime.backend",
+      "target": "infra.r2",
+      "title": "documentos, AFD, releases do agente",
+      "kind": "http"
+    },
+    {
+      "id": "1rupx8u",
+      "source": "fortime.backend",
+      "target": "fortime.cwConnector",
+      "title": "usa",
+      "kind": "http"
+    },
+    {
+      "id": "1kg5rtb",
+      "source": "fortime.cwConnector",
+      "target": "clockWise.cwApi",
+      "title": "lote síncrono ou em fila",
+      "kind": "http"
+    },
+    {
+      "id": "3jcae1",
+      "source": "clockWise",
+      "target": "infra.mysqlTenant",
+      "title": "lê marcações / grava cálculo",
+      "kind": "db"
+    },
+    {
+      "id": "1ckx4fl",
+      "source": "fortime.backend",
+      "target": "facialApi.facialCore",
+      "title": "POST /facialview, /makecache",
+      "kind": "http",
+      "technology": "HTTP + JWT"
+    },
+    {
+      "id": "2v2387",
+      "source": "facialApi.facialCore",
+      "target": "facialApi.deepface",
+      "title": "compara rosto",
+      "kind": "http",
+      "technology": "TCP socket"
+    },
+    {
+      "id": "tw5oby",
+      "source": "facialApi.facialCore",
+      "target": "infra.redis",
+      "title": "filas async",
+      "kind": "db"
+    }
+  ],
+  "views": [
+    {
+      "id": "index",
+      "title": "Fortime — visão geral",
+      "elements": [
+        "colaborador",
+        "gestor",
+        "webAgent",
+        "canais",
+        "fortime",
+        "punchRegister",
+        "facialApi",
+        "infra",
+        "infra.rabbit",
+        "clienteIntegrado",
+        "clockWise"
+      ],
+      "positions": {
+        "g1": {
+          "x": 8,
+          "y": 691,
+          "w": 437,
+          "h": 561
+        },
+        "colaborador": {
+          "x": 98,
+          "y": 106,
+          "p": "g1"
+        },
+        "gestor": {
+          "x": 98,
+          "y": 386,
+          "p": "g1"
+        },
+        "g2": {
+          "x": 690,
+          "y": 520,
+          "w": 400,
+          "h": 604
+        },
+        "webAgent": {
+          "x": 80,
+          "y": 106,
+          "p": "g2"
+        },
+        "canais": {
+          "x": 80,
+          "y": 429,
+          "p": "g2"
+        },
+        "g3": {
+          "x": 1385,
+          "y": 8,
+          "w": 1161,
+          "h": 841
+        },
+        "fortime": {
+          "x": 112,
+          "y": 386,
+          "p": "g3"
+        },
+        "punchRegister": {
+          "x": 830,
+          "y": 666,
+          "p": "g3"
+        },
+        "facialApi": {
+          "x": 830,
+          "y": 106,
+          "p": "g3"
+        },
+        "g4": {
+          "x": 1393,
+          "y": 857,
+          "w": 448,
+          "h": 342
+        },
+        "infra": {
+          "x": 32,
+          "y": 53,
+          "w": 384,
+          "h": 257,
+          "p": "g4"
+        },
+        "g5": {
+          "x": 2872,
+          "y": 576,
+          "w": 408,
+          "h": 265
+        },
+        "infra.rabbit": {
+          "x": 72,
+          "y": 94,
+          "p": "infra"
+        },
+        "clienteIntegrado": {
+          "x": 84,
+          "y": 98,
+          "p": "g5"
+        },
+        "clockWise": {
+          "x": 830,
+          "y": 386,
+          "p": "g3"
+        }
+      },
+      "type": "view",
+      "groups": [
+        {
+          "id": "g1",
+          "title": "Pessoas",
+          "elements": [
+            "colaborador",
+            "gestor"
+          ]
+        },
+        {
+          "id": "g2",
+          "title": "Entrada",
+          "elements": [
+            "webAgent",
+            "canais"
+          ]
+        },
+        {
+          "id": "g3",
+          "title": "Sistemas",
+          "elements": [
+            "fortime",
+            "punchRegister",
+            "facialApi",
+            "clockWise"
+          ]
+        },
+        {
+          "id": "g4",
+          "title": "Mensageria",
+          "elements": [
+            "infra"
+          ]
+        },
+        {
+          "id": "g5",
+          "title": "Destinos",
+          "elements": [
+            "clienteIntegrado"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dados",
+      "title": "Quem lê e escreve onde",
+      "elements": [
+        "fortime",
+        "punchRegister",
+        "clockWise",
+        "facialApi",
+        "infra",
+        "infra.redis",
+        "infra.mysqlTenant",
+        "infra.mysqlLandlord",
+        "infra.r2"
+      ],
+      "positions": {
+        "fortime": {
+          "x": 72,
+          "y": 685
+        },
+        "punchRegister": {
+          "x": 830,
+          "y": 246
+        },
+        "clockWise": {
+          "x": 830,
+          "y": 1315
+        },
+        "facialApi": {
+          "x": 830,
+          "y": 872
+        },
+        "infra": {
+          "x": 1539,
+          "y": 8,
+          "w": 438,
+          "h": 1061
+        },
+        "infra.redis": {
+          "x": 99,
+          "y": 626,
+          "p": "infra"
+        },
+        "infra.mysqlTenant": {
+          "x": 99,
+          "y": 886,
+          "p": "infra"
+        },
+        "infra.mysqlLandlord": {
+          "x": 99,
+          "y": 106,
+          "p": "infra"
+        },
+        "infra.r2": {
+          "x": 99,
+          "y": 366,
+          "p": "infra"
+        }
+      },
+      "type": "view",
+      "groups": []
+    },
+    {
+      "id": "punch",
+      "title": "punch_register — por dentro",
+      "elements": [
+        "colaborador",
+        "infra",
+        "infra.rabbit.qAgentPunches",
+        "canais",
+        "canais.painel",
+        "canais.appSingle",
+        "canais.appMulti",
+        "fortime",
+        "fortime.backend",
+        "punchRegister",
+        "punchRegister.api",
+        "punchRegister.afdImportConsumer",
+        "punchRegister.agentPunchesConsumer",
+        "punchRegister.exceptionCron",
+        "punchRegister.calcPendingCron",
+        "punchRegister.postRegister",
+        "geocoding",
+        "infra.rabbit.exPunch",
+        "infra.rabbit.exCalc",
+        "infra.rabbit.qWebhook",
+        "infra.rabbit.qAfdLine",
+        "infra.rabbit.qAfdImport",
+        "punchRegister.webhookConsumer",
+        "punchRegister.afdLineConsumer",
+        "infra.rabbit.qAfdLineDead",
+        "clienteIntegrado",
+        "smtpRevenda"
+      ],
+      "positions": {
+        "colaborador": {
+          "x": 58,
+          "y": 543
+        },
+        "infra": {
+          "x": 2544,
+          "y": 2531,
+          "w": 1737,
+          "h": 1029
+        },
+        "infra.rabbit.qAgentPunches": {
+          "x": 102,
+          "y": 354,
+          "p": "infra"
+        },
+        "canais": {
+          "x": 578,
+          "y": 177,
+          "w": 460,
+          "h": 801
+        },
+        "canais.painel": {
+          "x": 110,
+          "y": 106,
+          "p": "canais"
+        },
+        "canais.appSingle": {
+          "x": 110,
+          "y": 366,
+          "p": "canais"
+        },
+        "canais.appMulti": {
+          "x": 110,
+          "y": 626,
+          "p": "canais"
+        },
+        "fortime": {
+          "x": 1299,
+          "y": 714,
+          "w": 430,
+          "h": 265
+        },
+        "fortime.backend": {
+          "x": 95,
+          "y": 98,
+          "p": "fortime"
+        },
+        "punchRegister": {
+          "x": 1804,
+          "y": 8,
+          "w": 1190,
+          "h": 1841
+        },
+        "punchRegister.api": {
+          "x": 104,
+          "y": 366,
+          "p": "punchRegister"
+        },
+        "punchRegister.afdImportConsumer": {
+          "x": 104,
+          "y": 886,
+          "p": "punchRegister"
+        },
+        "punchRegister.agentPunchesConsumer": {
+          "x": 104,
+          "y": 1666,
+          "p": "punchRegister"
+        },
+        "punchRegister.exceptionCron": {
+          "x": 104,
+          "y": 1146,
+          "p": "punchRegister"
+        },
+        "punchRegister.calcPendingCron": {
+          "x": 104,
+          "y": 1406,
+          "p": "punchRegister"
+        },
+        "punchRegister.postRegister": {
+          "x": 842,
+          "y": 1363,
+          "p": "punchRegister"
+        },
+        "geocoding": {
+          "x": 3345,
+          "y": 1189
+        },
+        "infra.rabbit.exPunch": {
+          "x": 102,
+          "y": 606,
+          "p": "infra"
+        },
+        "infra.rabbit.exCalc": {
+          "x": 102,
+          "y": 102,
+          "p": "infra"
+        },
+        "infra.rabbit.qWebhook": {
+          "x": 801,
+          "y": 354,
+          "p": "infra"
+        },
+        "infra.rabbit.qAfdLine": {
+          "x": 801,
+          "y": 606,
+          "p": "infra"
+        },
+        "infra.rabbit.qAfdImport": {
+          "x": 801,
+          "y": 858,
+          "p": "infra"
+        },
+        "punchRegister.webhookConsumer": {
+          "x": 104,
+          "y": 626,
+          "p": "punchRegister"
+        },
+        "punchRegister.afdLineConsumer": {
+          "x": 104,
+          "y": 106,
+          "p": "punchRegister"
+        },
+        "infra.rabbit.qAfdLineDead": {
+          "x": 1400,
+          "y": 606,
+          "p": "infra"
+        },
+        "clienteIntegrado": {
+          "x": 2646,
+          "y": 1934
+        },
+        "smtpRevenda": {
+          "x": 2646,
+          "y": 2194
+        }
+      },
+      "type": "view",
+      "groups": []
+    },
+    {
+      "id": "messaging",
+      "title": "Mensageria (RabbitMQ)",
+      "elements": [
+        "infra.rabbit",
+        "infra.rabbit.exPunch",
+        "infra.rabbit.exCalc",
+        "infra.rabbit.exApp",
+        "infra.rabbit.qWebhook",
+        "infra.rabbit.qAfdLine",
+        "infra.rabbit.qAfdImport",
+        "infra.rabbit.qCalcPunch",
+        "infra.rabbit.qCalcSystem",
+        "infra.rabbit.qAgentPunches",
+        "infra.rabbit.qAfdLineDead"
+      ],
+      "positions": {
+        "infra.rabbit": {
+          "x": 8,
+          "y": 8,
+          "w": 1703,
+          "h": 1433
+        },
+        "infra.rabbit.exPunch": {
+          "x": 101,
+          "y": 1030,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.exCalc": {
+          "x": 101,
+          "y": 468,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.exApp": {
+          "x": 101,
+          "y": 102,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qWebhook": {
+          "x": 796,
+          "y": 1262,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qAfdLine": {
+          "x": 796,
+          "y": 1030,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qAfdImport": {
+          "x": 796,
+          "y": 798,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qCalcPunch": {
+          "x": 796,
+          "y": 566,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qCalcSystem": {
+          "x": 796,
+          "y": 334,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qAgentPunches": {
+          "x": 796,
+          "y": 102,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qAfdLineDead": {
+          "x": 1366,
+          "y": 1030,
+          "p": "infra.rabbit"
+        }
+      },
+      "type": "view",
+      "groups": []
+    },
+    {
+      "id": "agente",
+      "title": "Agente de integração",
+      "elements": [
+        "webAgent",
+        "webAgent.agent",
+        "webAgent.legacyAgent",
+        "webAgent.hub",
+        "canais",
+        "fortime",
+        "canais.relogio",
+        "fortime.backend",
+        "infra",
+        "infra.rabbit.exApp",
+        "infra.rabbit.qAgentPunches",
+        "punchRegister.agentPunchesConsumer"
+      ],
+      "positions": {
+        "webAgent": {
+          "x": 365,
+          "y": 13,
+          "w": 449,
+          "h": 801
+        },
+        "webAgent.agent": {
+          "x": 104,
+          "y": 106,
+          "p": "webAgent"
+        },
+        "webAgent.legacyAgent": {
+          "x": 104,
+          "y": 366,
+          "p": "webAgent"
+        },
+        "webAgent.hub": {
+          "x": 104,
+          "y": 626,
+          "p": "webAgent"
+        },
+        "canais": {
+          "x": 1085,
+          "y": 8,
+          "w": 438,
+          "h": 265
+        },
+        "fortime": {
+          "x": 1089,
+          "y": 281,
+          "w": 430,
+          "h": 265
+        },
+        "canais.relogio": {
+          "x": 99,
+          "y": 98,
+          "p": "canais"
+        },
+        "fortime.backend": {
+          "x": 95,
+          "y": 98,
+          "p": "fortime"
+        },
+        "infra": {
+          "x": 1104,
+          "y": 554,
+          "w": 400,
+          "h": 548
+        },
+        "infra.rabbit.exApp": {
+          "x": 80,
+          "y": 377,
+          "p": "infra"
+        },
+        "infra.rabbit.qAgentPunches": {
+          "x": 80,
+          "y": 102,
+          "p": "infra"
+        },
+        "punchRegister.agentPunchesConsumer": {
+          "x": 1738,
+          "y": 656
+        }
+      },
+      "type": "view",
+      "groups": []
+    },
+    {
+      "id": "batidaWeb",
+      "title": "Batida web — do clique à linha fiscal",
+      "elements": [
+        "colaborador",
+        "canais",
+        "canais.painel",
+        "punchRegister",
+        "punchRegister.api",
+        "infra.r2",
+        "infra.mysqlTenant",
+        "punchRegister.postRegister",
+        "infra.rabbit",
+        "infra.rabbit.exPunch",
+        "geocoding",
+        "infra.rabbit.exCalc",
+        "infra.rabbit.qCalcPunch",
+        "clockWise",
+        "clockWise.cwConsumer",
+        "infra.rabbit.qAfdLine",
+        "punchRegister.afdLineConsumer",
+        "infra.rabbit.qWebhook",
+        "punchRegister.webhookConsumer",
+        "clienteIntegrado"
+      ],
+      "positions": {
+        "colaborador": {
+          "x": 58,
+          "y": 721
+        },
+        "canais": {
+          "x": 609,
+          "y": 623,
+          "w": 443,
+          "h": 265
+        },
+        "canais.painel": {
+          "x": 102,
+          "y": 98,
+          "p": "canais"
+        },
+        "punchRegister": {
+          "x": 1378,
+          "y": 325,
+          "w": 1223,
+          "h": 861
+        },
+        "punchRegister.api": {
+          "x": 97,
+          "y": 396,
+          "p": "punchRegister"
+        },
+        "infra.r2": {
+          "x": 2253,
+          "y": 150
+        },
+        "infra.mysqlTenant": {
+          "x": 1475,
+          "y": 1301
+        },
+        "punchRegister.postRegister": {
+          "x": 875,
+          "y": 651,
+          "p": "punchRegister"
+        },
+        "infra.rabbit": {
+          "x": 2901,
+          "y": 860,
+          "w": 1142,
+          "h": 837
+        },
+        "infra.rabbit.exPunch": {
+          "x": 101,
+          "y": 156,
+          "p": "infra.rabbit"
+        },
+        "geocoding": {
+          "x": 3002,
+          "y": 685
+        },
+        "infra.rabbit.exCalc": {
+          "x": 101,
+          "y": 570,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qCalcPunch": {
+          "x": 822,
+          "y": 666,
+          "p": "infra.rabbit"
+        },
+        "clockWise": {
+          "x": 4216,
+          "y": 1428,
+          "w": 434,
+          "h": 265
+        },
+        "clockWise.cwConsumer": {
+          "x": 97,
+          "y": 98,
+          "p": "clockWise"
+        },
+        "infra.rabbit.qAfdLine": {
+          "x": 822,
+          "y": 102,
+          "p": "infra.rabbit"
+        },
+        "punchRegister.afdLineConsumer": {
+          "x": 97,
+          "y": 106,
+          "p": "punchRegister"
+        },
+        "infra.rabbit.qWebhook": {
+          "x": 822,
+          "y": 384,
+          "p": "infra.rabbit"
+        },
+        "punchRegister.webhookConsumer": {
+          "x": 97,
+          "y": 686,
+          "p": "punchRegister"
+        },
+        "clienteIntegrado": {
+          "x": 2253,
+          "y": 1271
+        }
+      },
+      "type": "flow",
+      "steps": [
+        {
+          "id": "step-01",
+          "source": "colaborador",
+          "target": "canais.painel",
+          "title": "clica em bater ponto"
+        },
+        {
+          "id": "step-02",
+          "source": "canais.painel",
+          "target": "punchRegister.api",
+          "title": "POST /point/photo (opcional)"
+        },
+        {
+          "id": "step-03",
+          "source": "punchRegister.api",
+          "target": "infra.r2",
+          "title": "grava a foto"
+        },
+        {
+          "id": "step-04",
+          "source": "canais.painel",
+          "target": "punchRegister.api",
+          "title": "POST /point/web"
+        },
+        {
+          "id": "step-05",
+          "source": "punchRegister.api",
+          "target": "infra.mysqlTenant",
+          "title": "INSERT time_card_hour"
+        },
+        {
+          "id": "step-06",
+          "source": "punchRegister.api",
+          "target": "canais.painel",
+          "title": "201"
+        },
+        {
+          "id": "step-07",
+          "source": "punchRegister.api",
+          "target": "punchRegister.postRegister",
+          "title": "defer()"
+        },
+        {
+          "id": "step-08",
+          "source": "punchRegister.postRegister",
+          "target": "infra.rabbit.exPunch",
+          "title": "punch-register.webhook"
+        },
+        {
+          "id": "step-09",
+          "source": "punchRegister.postRegister",
+          "target": "geocoding",
+          "title": "endereço"
+        },
+        {
+          "id": "step-10",
+          "source": "punchRegister.postRegister",
+          "target": "infra.mysqlTenant",
+          "title": "pré-assinalado, dedup, descarte, reorder"
+        },
+        {
+          "id": "step-11",
+          "source": "punchRegister.postRegister",
+          "target": "infra.rabbit.exCalc",
+          "title": "clock-wise.calculate.punch"
+        },
+        {
+          "id": "step-12",
+          "source": "punchRegister.postRegister",
+          "target": "infra.rabbit.exPunch",
+          "title": "punch-register.afd-line"
+        },
+        {
+          "id": "step-13",
+          "source": "infra.rabbit.exCalc",
+          "target": "infra.rabbit.qCalcPunch",
+          "title": "clock-wise.calculate.punch"
+        },
+        {
+          "id": "step-14",
+          "source": "infra.rabbit.qCalcPunch",
+          "target": "clockWise.cwConsumer",
+          "title": "calcula o dia"
+        },
+        {
+          "id": "step-15",
+          "source": "infra.rabbit.exPunch",
+          "target": "infra.rabbit.qAfdLine",
+          "title": "punch-register.afd-line"
+        },
+        {
+          "id": "step-16",
+          "source": "infra.rabbit.qAfdLine",
+          "target": "punchRegister.afdLineConsumer",
+          "title": "consome"
+        },
+        {
+          "id": "step-17",
+          "source": "punchRegister.afdLineConsumer",
+          "target": "infra.mysqlTenant",
+          "title": "NSR + hash + body_tax_file (lock 5s)"
+        },
+        {
+          "id": "step-18",
+          "source": "infra.rabbit.exPunch",
+          "target": "infra.rabbit.qWebhook",
+          "title": "punch-register.webhook"
+        },
+        {
+          "id": "step-19",
+          "source": "infra.rabbit.qWebhook",
+          "target": "punchRegister.webhookConsumer",
+          "title": "consome"
+        },
+        {
+          "id": "step-20",
+          "source": "punchRegister.webhookConsumer",
+          "target": "clienteIntegrado",
+          "title": "POST envelope"
+        }
+      ]
+    },
+    {
+      "id": "importacaoAfd",
+      "title": "Importação de AFD do relógio",
+      "elements": [
+        "gestor",
+        "canais",
+        "canais.painel",
+        "fortime",
+        "fortime.backend",
+        "infra.r2",
+        "infra.mysqlTenant",
+        "infra.rabbit",
+        "infra.rabbit.exPunch",
+        "infra.rabbit.qAfdImport",
+        "punchRegister",
+        "punchRegister.afdImportConsumer",
+        "infra.rabbit.exCalc"
+      ],
+      "positions": {
+        "gestor": {
+          "x": 58,
+          "y": 693
+        },
+        "canais": {
+          "x": 607,
+          "y": 595,
+          "w": 444,
+          "h": 265
+        },
+        "canais.painel": {
+          "x": 102,
+          "y": 98,
+          "p": "canais"
+        },
+        "fortime": {
+          "x": 1244,
+          "y": 617,
+          "w": 430,
+          "h": 265
+        },
+        "fortime.backend": {
+          "x": 95,
+          "y": 98,
+          "p": "fortime"
+        },
+        "infra.r2": {
+          "x": 2035,
+          "y": 715
+        },
+        "infra.mysqlTenant": {
+          "x": 2035,
+          "y": 1066
+        },
+        "infra.rabbit": {
+          "x": 1934,
+          "y": 8,
+          "w": 1158,
+          "h": 555
+        },
+        "infra.rabbit.exPunch": {
+          "x": 101,
+          "y": 102,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qAfdImport": {
+          "x": 838,
+          "y": 237,
+          "p": "infra.rabbit"
+        },
+        "punchRegister": {
+          "x": 2680,
+          "y": 653,
+          "w": 424,
+          "h": 265
+        },
+        "punchRegister.afdImportConsumer": {
+          "x": 92,
+          "y": 98,
+          "p": "punchRegister"
+        },
+        "infra.rabbit.exCalc": {
+          "x": 101,
+          "y": 384,
+          "p": "infra.rabbit"
+        }
+      },
+      "type": "flow",
+      "steps": [
+        {
+          "id": "step-01",
+          "source": "gestor",
+          "target": "canais.painel",
+          "title": "sobe o arquivo AFD"
+        },
+        {
+          "id": "step-02",
+          "source": "canais.painel",
+          "target": "fortime.backend",
+          "title": "upload"
+        },
+        {
+          "id": "step-03",
+          "source": "fortime.backend",
+          "target": "infra.r2",
+          "title": "grava o arquivo"
+        },
+        {
+          "id": "step-04",
+          "source": "fortime.backend",
+          "target": "infra.mysqlTenant",
+          "title": "cria client_import_files"
+        },
+        {
+          "id": "step-05",
+          "source": "fortime.backend",
+          "target": "infra.rabbit.exPunch",
+          "title": "punch-register.afd-import"
+        },
+        {
+          "id": "step-06",
+          "source": "infra.rabbit.exPunch",
+          "target": "infra.rabbit.qAfdImport",
+          "title": "punch-register.afd-import"
+        },
+        {
+          "id": "step-07",
+          "source": "infra.rabbit.qAfdImport",
+          "target": "punchRegister.afdImportConsumer",
+          "title": "{ client_import_file_id, new_afd, \nfilter_client }"
+        },
+        {
+          "id": "step-08",
+          "source": "punchRegister.afdImportConsumer",
+          "target": "infra.r2",
+          "title": "lê o arquivo"
+        },
+        {
+          "id": "step-09",
+          "source": "punchRegister.afdImportConsumer",
+          "target": "infra.mysqlTenant",
+          "title": "valida cabeçalho e CNPJ (10%)"
+        },
+        {
+          "id": "step-10",
+          "source": "punchRegister.afdImportConsumer",
+          "target": "infra.mysqlTenant",
+          "title": "resolve colaboradores (PIS/CPF) e \njornadas"
+        },
+        {
+          "id": "step-11",
+          "source": "punchRegister.afdImportConsumer",
+          "target": "infra.mysqlTenant",
+          "title": "grava batidas + pré-assinalados, \nreconcilia (25/50/75%)"
+        },
+        {
+          "id": "step-12",
+          "source": "punchRegister.afdImportConsumer",
+          "target": "infra.rabbit.exPunch",
+          "title": "linha fiscal dos pré-assinalados"
+        },
+        {
+          "id": "step-13",
+          "source": "punchRegister.afdImportConsumer",
+          "target": "infra.rabbit.exCalc",
+          "title": "cálculo dos dias"
+        },
+        {
+          "id": "step-14",
+          "source": "punchRegister.afdImportConsumer",
+          "target": "infra.mysqlTenant",
+          "title": "status final + período do AFD"
+        },
+        {
+          "id": "step-15",
+          "source": "punchRegister.afdImportConsumer",
+          "target": "infra.r2",
+          "title": "apaga o arquivo"
+        },
+        {
+          "id": "step-16",
+          "source": "canais.painel",
+          "target": "fortime.backend",
+          "title": "tela lê o status"
+        }
+      ]
+    },
+    {
+      "id": "coletaAgente",
+      "title": "Coleta de batidas pelo agente",
+      "elements": [
+        "fortime",
+        "fortime.backend",
+        "infra.rabbit",
+        "infra.rabbit.exApp",
+        "webAgent",
+        "webAgent.hub",
+        "webAgent.agent",
+        "canais.relogio",
+        "infra.rabbit.qAgentPunches",
+        "punchRegister",
+        "punchRegister.agentPunchesConsumer",
+        "infra.mysqlTenant",
+        "infra.redis",
+        "infra.rabbit.exPunch",
+        "infra.rabbit.exCalc"
+      ],
+      "positions": {
+        "fortime": {
+          "x": 9,
+          "y": 447,
+          "w": 430,
+          "h": 265
+        },
+        "fortime.backend": {
+          "x": 95,
+          "y": 98,
+          "p": "fortime"
+        },
+        "infra.rabbit": {
+          "x": 783,
+          "y": 443,
+          "w": 1133,
+          "h": 837
+        },
+        "infra.rabbit.exApp": {
+          "x": 101,
+          "y": 102,
+          "p": "infra.rabbit"
+        },
+        "webAgent": {
+          "x": 1492,
+          "y": 8,
+          "w": 1218,
+          "h": 427
+        },
+        "webAgent.hub": {
+          "x": 104,
+          "y": 242,
+          "p": "webAgent"
+        },
+        "webAgent.agent": {
+          "x": 876,
+          "y": 169,
+          "p": "webAgent"
+        },
+        "canais.relogio": {
+          "x": 3051,
+          "y": 177
+        },
+        "infra.rabbit.qAgentPunches": {
+          "x": 813,
+          "y": 558,
+          "p": "infra.rabbit"
+        },
+        "punchRegister": {
+          "x": 8,
+          "y": 1417,
+          "w": 432,
+          "h": 265
+        },
+        "punchRegister.agentPunchesConsumer": {
+          "x": 96,
+          "y": 98,
+          "p": "punchRegister"
+        },
+        "infra.mysqlTenant": {
+          "x": 884,
+          "y": 1944
+        },
+        "infra.redis": {
+          "x": 884,
+          "y": 1395
+        },
+        "infra.rabbit.exPunch": {
+          "x": 101,
+          "y": 666,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.exCalc": {
+          "x": 101,
+          "y": 384,
+          "p": "infra.rabbit"
+        }
+      },
+      "type": "flow",
+      "steps": [
+        {
+          "id": "step-01",
+          "source": "fortime.backend",
+          "target": "infra.rabbit.exApp",
+          "title": "hub-{hubId}-get-punches (cursor de cada \nrelógio)"
+        },
+        {
+          "id": "step-02",
+          "source": "infra.rabbit.exApp",
+          "target": "webAgent.hub",
+          "title": "entrega comandos"
+        },
+        {
+          "id": "step-03",
+          "source": "webAgent.hub",
+          "target": "webAgent.agent",
+          "title": "SignalR"
+        },
+        {
+          "id": "step-04",
+          "source": "webAgent.agent",
+          "target": "canais.relogio",
+          "title": "lê o AFD a partir do NSR"
+        },
+        {
+          "id": "step-05",
+          "source": "webAgent.agent",
+          "target": "webAgent.hub",
+          "title": "pacotes (1 batch_id por relógio)"
+        },
+        {
+          "id": "step-06",
+          "source": "webAgent.hub",
+          "target": "infra.rabbit.exApp",
+          "title": "{prefix}-get-punches-response"
+        },
+        {
+          "id": "step-07",
+          "source": "infra.rabbit.exApp",
+          "target": "infra.rabbit.qAgentPunches",
+          "title": "{prefix}-get-punches-response"
+        },
+        {
+          "id": "step-08",
+          "source": "infra.rabbit.qAgentPunches",
+          "target": "punchRegister.agentPunchesConsumer",
+          "title": "consome"
+        },
+        {
+          "id": "step-09",
+          "source": "punchRegister.agentPunchesConsumer",
+          "target": "infra.mysqlTenant",
+          "title": "grava as batidas do pacote"
+        },
+        {
+          "id": "step-10",
+          "source": "punchRegister.agentPunchesConsumer",
+          "target": "infra.redis",
+          "title": "anota o pacote"
+        },
+        {
+          "id": "step-11",
+          "source": "punchRegister.agentPunchesConsumer",
+          "target": "infra.mysqlTenant",
+          "title": "lote completo → avança o cursor"
+        },
+        {
+          "id": "step-12",
+          "source": "punchRegister.agentPunchesConsumer",
+          "target": "infra.rabbit.exPunch",
+          "title": "webhook + linha fiscal"
+        },
+        {
+          "id": "step-13",
+          "source": "punchRegister.agentPunchesConsumer",
+          "target": "infra.rabbit.exCalc",
+          "title": "cálculo do dia"
+        }
+      ]
+    },
+    {
+      "id": "pontoExcecao",
+      "title": "Ponto por exceção (cron)",
+      "elements": [
+        "punchRegister",
+        "punchRegister.exceptionCron",
+        "infra.mysqlTenant",
+        "infra.rabbit",
+        "infra.rabbit.exCalc",
+        "infra.rabbit.qCalcPunch",
+        "clockWise",
+        "clockWise.cwConsumer"
+      ],
+      "positions": {
+        "punchRegister": {
+          "x": 8,
+          "y": 90,
+          "w": 427,
+          "h": 265
+        },
+        "punchRegister.exceptionCron": {
+          "x": 94,
+          "y": 98,
+          "p": "punchRegister"
+        },
+        "infra.mysqlTenant": {
+          "x": 845,
+          "y": 45
+        },
+        "infra.rabbit": {
+          "x": 743,
+          "y": 240,
+          "w": 1088,
+          "h": 273
+        },
+        "infra.rabbit.exCalc": {
+          "x": 102,
+          "y": 102,
+          "p": "infra.rabbit"
+        },
+        "infra.rabbit.qCalcPunch": {
+          "x": 768,
+          "y": 102,
+          "p": "infra.rabbit"
+        },
+        "clockWise": {
+          "x": 1974,
+          "y": 244,
+          "w": 434,
+          "h": 265
+        },
+        "clockWise.cwConsumer": {
+          "x": 97,
+          "y": 98,
+          "p": "clockWise"
+        }
+      },
+      "type": "flow",
+      "steps": [
+        {
+          "id": "step-01",
+          "source": "punchRegister.exceptionCron",
+          "target": "infra.mysqlTenant",
+          "title": "agendas vencidas (lockForUpdate)"
+        },
+        {
+          "id": "step-02",
+          "source": "punchRegister.exceptionCron",
+          "target": "infra.mysqlTenant",
+          "title": "cria a batida (EXCEPTION_POINT)"
+        },
+        {
+          "id": "step-03",
+          "source": "punchRegister.exceptionCron",
+          "target": "infra.rabbit.exCalc",
+          "title": "cálculo do dia (após commit)"
+        },
+        {
+          "id": "step-04",
+          "source": "infra.rabbit.exCalc",
+          "target": "infra.rabbit.qCalcPunch",
+          "title": "clock-wise.calculate.punch"
+        },
+        {
+          "id": "step-05",
+          "source": "infra.rabbit.qCalcPunch",
+          "target": "clockWise.cwConsumer",
+          "title": "consome"
+        }
+      ]
+    }
+  ]
+}

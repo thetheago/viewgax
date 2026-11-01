@@ -1,105 +1,75 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   applyNodeChanges, Background, Controls, ReactFlow, useNodesInitialized, useReactFlow,
-  type Edge, type Node, type NodeChange,
+  type FinalConnectionState, type Node, type NodeChange,
 } from '@xyflow/react'
-import { applySaved, autoLayout, isSaved, PRESETS, toSaved, type Preset } from './layout'
-import { isDynamic, toFlow, type CardData, type Data, type EdgeData, type View } from './model'
-import { nodeTypes } from './nodes'
+import { computeView, withAncestors, type NodeData } from './compute'
+import { newId, type Doc, type View } from './doc'
 import { ArrowMarkers, edgeTypes, SelectEdge } from './FloatingEdge'
-import { SidePanel, type Selection } from './SidePanel'
+import { autoLayout, fillMissing, hasValidPosition, PRESETS, toPositions, type Preset } from './layout'
+import { nodeTypes } from './nodes'
+import { Panel, type Selection } from './Panel'
 import { Stepper } from './Stepper'
-import { clearLocal, download, fileLayout, localLayout, saveLocal } from './storage'
 
-type Source = 'local' | 'arquivo' | 'automático'
-
-const sourceOf = (viewId: string): Source =>
-  localLayout(viewId) ? 'local' : fileLayout(viewId) ? 'arquivo' : 'automático'
-
-function initialNodes(view: View) {
-  return applySaved(toFlow(view).nodes, localLayout(view.id) ?? fileLayout(view.id))
-}
+type Props = { doc: Doc; view: View; update: (fn: (d: Doc) => void) => void; onViewDeleted: () => void }
 
 // fim de arrasto ou de redimensionamento = edição do usuário que vale salvar
 const isEditEnd = (c: NodeChange) =>
   (c.type === 'position' && c.dragging === false) || (c.type === 'dimensions' && c.resizing === false)
 
+const groupColumns = (view: View) => (view.type === 'view' ? view.groups.map(g => g.id) : [])
+
+function pointOf(event: MouseEvent | TouchEvent) {
+  return 'changedTouches' in event ? event.changedTouches[0] : event
+}
+
 /** Ids ligados à seleção; o resto fica apagado. */
-function related(view: View, selection: Selection): Set<string> | null {
+function related(edges: { id: string; source: string; target: string }[], selection: Selection): Set<string> | null {
   if (!selection) return null
   if (selection.type === 'edge') {
-    const e = view.edges.find(x => x.id === selection.id)
+    const e = edges.find(x => x.id === selection.id)
     return e ? new Set([e.id, e.source, e.target]) : null
   }
   const ids = new Set([selection.id])
-  for (const e of view.edges) {
+  for (const e of edges) {
     if (e.source !== selection.id && e.target !== selection.id) continue
     ids.add(e.id).add(e.source).add(e.target)
   }
   return ids
 }
 
-const groupColumns = (view: View) => view.nodes.filter(n => n.kind === '@group' && !n.parent).map(n => n.id)
-
-export function Diagram({ data, view }: { data: Data; view: View }) {
-  const flow = useMemo(() => toFlow(view), [view])
-  const [nodes, setNodes] = useState<Node<CardData>[]>(() => initialNodes(view))
+export function Diagram({ doc, view, update, onViewDeleted }: Props) {
+  const computed = useMemo(() => computeView(doc, view), [doc, view])
+  const [nodes, setNodes] = useState<Node<NodeData>[]>(computed.nodes)
   const [selection, setSelection] = useState<Selection>(null)
-  const [source, setSource] = useState<Source>(() => sourceOf(view.id))
   const [status, setStatus] = useState('')
   const [pendingSave, setPendingSave] = useState(false)
-  const fileInput = useRef<HTMLInputElement>(null)
-  const { fitView } = useReactFlow()
+  const { fitView, screenToFlowPosition } = useReactFlow()
 
-  const persist = useCallback((next: Node[]) => {
-    saveLocal(toSaved(view.id, next))
-    setSource('local')
-  }, [view.id])
+  const editView = useCallback((fn: (v: View) => void) => update(d => fn(d.views.find(v => v.id === view.id)!)), [update, view.id])
+  const savePositions = useCallback((next: Node[]) => editView(v => void (v.positions = toPositions(next))), [editView])
 
-  const onNodesChange = useCallback((changes: NodeChange<Node<CardData>>[]) => {
+  // o documento mudou (edição, posição salva): redesenha
+  useEffect(() => setNodes(computed.nodes), [computed])
+
+  // card sem posição (novo no modelo, passo novo, grupo novo): o ELK escolhe, o resto fica
+  useEffect(() => {
+    if (computed.nodes.every(n => hasValidPosition(view.positions, n))) return
+    fillMissing(computed.nodes, computed.edges, view.positions, groupColumns(view))
+      .then(savePositions)
+      .catch(err => setStatus(`erro no layout: ${err.message}`))
+  }, [computed, view, savePositions])
+
+  const onNodesChange = useCallback((changes: NodeChange<Node<NodeData>>[]) => {
     setNodes(ns => applyNodeChanges(changes, ns))
     if (changes.some(isEditEnd)) setPendingSave(true)
   }, [])
 
   useEffect(() => {
     if (!pendingSave) return
-    persist(nodes)
+    savePositions(nodes)
     setPendingSave(false)
-  }, [pendingSave, nodes, persist])
-
-  const replaceNodes = (next: Node<CardData>[]) => {
-    setNodes(next)
-    persist(next)
-    requestAnimationFrame(() => fitView({ duration: 300 }))
-  }
-
-  async function suggest(preset: Preset) {
-    setStatus('calculando…')
-    try {
-      replaceNodes(await autoLayout(nodes, flow.edges, preset, groupColumns(view)))
-      setStatus('')
-    } catch (err) {
-      setStatus(`erro no layout: ${(err as Error).message}`)
-    }
-  }
-
-  async function importFile(file: File) {
-    try {
-      const value = JSON.parse(await file.text())
-      if (!isSaved(value)) throw new Error('arquivo não é um layout do viewgax')
-      if (value.viewId !== view.id) throw new Error(`layout é da visão "${value.viewId}"`)
-      replaceNodes(applySaved(nodes, value))
-      setStatus('')
-    } catch (err) {
-      setStatus(`importação falhou: ${(err as Error).message}`)
-    }
-  }
-
-  function discardLocal() {
-    clearLocal(view.id)
-    setNodes(initialNodes(view))
-    setSource(sourceOf(view.id))
-  }
+  }, [pendingSave, nodes, savePositions])
 
   // o prop fitView do xyflow às vezes dispara antes da medição no build de produção
   const initialized = useNodesInitialized()
@@ -107,46 +77,103 @@ export function Diagram({ data, view }: { data: Data; view: View }) {
     if (initialized) fitView()
   }, [initialized, fitView])
 
-  // fluxo dinâmico: aproxima a câmera do passo selecionado
+  // fluxo: aproxima a câmera do passo selecionado
   useEffect(() => {
-    if (!isDynamic(view) || selection?.type !== 'edge') return
-    const e = view.edges.find(x => x.id === selection.id)
-    if (e) fitView({ nodes: [{ id: e.source }, { id: e.target }], padding: 0.6, maxZoom: 1.2, duration: 300 })
+    if (view.type !== 'flow' || selection?.type !== 'edge') return
+    const s = view.steps.find(x => x.id === selection.id)
+    if (s) fitView({ nodes: [{ id: s.source }, { id: s.target }], padding: 0.8, maxZoom: 1.2, duration: 300 })
   }, [view, selection, fitView])
 
-  const highlight = related(view, selection)
+  async function suggest(preset: Preset) {
+    setStatus('calculando…')
+    try {
+      savePositions(await autoLayout(nodes, computed.edges, preset, groupColumns(view)))
+      setStatus('')
+      requestAnimationFrame(() => fitView({ duration: 300 }))
+    } catch (err) {
+      setStatus(`erro no layout: ${(err as Error).message}`)
+    }
+  }
+
+  // centro da tela; se já tem card ali, anda para a direita até achar espaço
+  const freeSpot = () => {
+    const box = document.querySelector('.canvas')!.getBoundingClientRect()
+    const spot = screenToFlowPosition({ x: box.x + box.width / 2 - 120, y: box.y + box.height / 2 - 45 })
+    const roots = nodes.filter(n => !n.parentId)
+    const taken = () => roots.some(n => Math.abs(n.position.x - spot.x) < 260 && Math.abs(n.position.y - spot.y) < 110)
+    while (taken()) spot.x += 280
+    return spot
+  }
+
+  function newCard() {
+    const id = newId('el')
+    update(d => {
+      d.elements.push({ id, title: 'Novo card', kind: 'system', color: 'primary' })
+      const v = d.views.find(x => x.id === view.id)!
+      v.elements.push(id)
+      v.positions[id] = freeSpot()
+    })
+    setSelection({ type: 'node', id })
+  }
+
+  function addExisting(id: string) {
+    editView(v => {
+      v.elements.push(id)
+      v.positions[id] = freeSpot()
+    })
+    setSelection({ type: 'node', id })
+  }
+
+  // soltou a seta em cima de um card: cria comunicação (visão) ou próximo passo (fluxo)
+  function onConnectEnd(event: MouseEvent | TouchEvent, state: FinalConnectionState) {
+    const source = state.fromNode?.id
+    const { clientX, clientY } = pointOf(event)
+    const target = (document.elementFromPoint(clientX, clientY)?.closest('.react-flow__node') as HTMLElement | null)?.dataset.id
+    if (!source || !target || source === target || !doc.elements.some(e => e.id === target)) return
+    const id = newId(view.type === 'flow' ? 'step' : 'rel')
+    if (view.type === 'flow') {
+      const parents = [...withAncestors(doc, source), ...withAncestors(doc, target)]
+      editView(v => {
+        if (v.type !== 'flow') return
+        v.steps.push({ id, source, target, title: 'Novo passo' })
+        v.elements = [...new Set([...v.elements, ...parents])]
+      })
+      setSelection({ type: 'edge', id })
+      return
+    }
+    update(d => void d.relations.push({ id, source, target, kind: 'http', title: 'Nova comunicação' }))
+    setSelection({ type: 'edge', id: `${source}->${target}` })
+  }
+
+  const shown = new Set(nodes.map(n => n.id))
+  const available = doc.elements.filter(e => !shown.has(e.id)).sort((a, b) => a.title.localeCompare(b.title))
+  const highlight = related(computed.edges, selection)
   const dim = (id: string) => (highlight && !highlight.has(id) ? 0.2 : 1)
-  const shownNodes = nodes.map(n => ({ ...n, style: { ...n.style, opacity: dim(n.id) } }))
-  const shownEdges: Edge<EdgeData>[] = flow.edges.map(e => ({
+  const isSelected = (type: 'node' | 'edge', id: string) => selection?.type === type && selection.id === id
+  const shownNodes = nodes.map(n => ({ ...n, selected: isSelected('node', n.id), style: { ...n.style, opacity: dim(n.id) } }))
+  const shownEdges = computed.edges.map(e => ({
     ...e,
-    selected: selection?.type === 'edge' && selection.id === e.id,
+    selected: isSelected('edge', e.id),
+    data: { ...e.data!, active: view.type === 'flow' && isSelected('edge', e.id) },
     style: { opacity: dim(e.id) },
   }))
-  const edgeColors = [...new Set(view.edges.map(e => e.color))]
+  const edgeColors = [...new Set(computed.edges.map(e => e.data!.color))]
   const selectEdge = useCallback((id: string) => setSelection({ type: 'edge', id }), [])
 
   return (
     <div className="diagram">
       <div className="toolbar">
-        <h1>{view.title ?? view.id}</h1>
-        <label>
-          Sugerir layout
-          <select value="" onChange={e => e.target.value && suggest(e.target.value as Preset)}>
-            <option value="">escolha…</option>
-            {Object.entries(PRESETS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select>
-        </label>
-        <button onClick={() => download(toSaved(view.id, nodes))}>Baixar layout</button>
-        <button onClick={() => fileInput.current?.click()}>Importar layout</button>
-        <input ref={fileInput} type="file" accept=".json" hidden onChange={e => {
-          const file = e.target.files?.[0]
-          e.target.value = ''
-          if (file) importFile(file)
-        }} />
-        <button onClick={discardLocal} disabled={source !== 'local'}>Descartar alterações locais</button>
-        <span className={`source ${source}`}>
-          layout: {source}{source === 'local' && ' — baixe e commite em layouts/'}
-        </span>
+        <h1>{view.title}</h1>
+        <button onClick={newCard}>+ Novo card</button>
+        <select value="" onChange={e => e.target.value && addExisting(e.target.value)}>
+          <option value="">+ Card existente…</option>
+          {available.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+        </select>
+        <select value="" onChange={e => e.target.value && suggest(e.target.value as Preset)}>
+          <option value="">Sugerir layout…</option>
+          {Object.entries(PRESETS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+        <span className="hint">Arraste do ponto à direita de um card até outro para {view.type === 'flow' ? 'criar um passo' : 'criar uma comunicação'}.</span>
         {status && <span className="status">{status}</span>}
       </div>
       <div className="canvas">
@@ -158,19 +185,20 @@ export function Diagram({ data, view }: { data: Data; view: View }) {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             onNodesChange={onNodesChange}
+            onConnectEnd={onConnectEnd}
             onNodeClick={(_, n) => setSelection({ type: 'node', id: n.id })}
             onEdgeClick={(_, e) => setSelection({ type: 'edge', id: e.id })}
             onPaneClick={() => setSelection(null)}
-            nodesConnectable={false}
+            deleteKeyCode={null}
             minZoom={0.1}
           >
             <Background gap={20} />
             <Controls showInteractive={false} />
           </ReactFlow>
         </SelectEdge.Provider>
-        {isDynamic(view) && <Stepper view={view} selection={selection} onSelect={setSelection} />}
+        {view.type === 'flow' && <Stepper steps={view.steps} selection={selection} onSelect={setSelection} />}
       </div>
-      <SidePanel data={data} view={view} selection={selection} onSelect={setSelection} />
+      <Panel doc={doc} view={view} edges={computed.edges} selection={selection} onSelect={setSelection} update={update} onViewDeleted={onViewDeleted} />
     </div>
   )
 }

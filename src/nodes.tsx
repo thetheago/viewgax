@@ -1,49 +1,39 @@
 import { Handle, NodeResizer, Position, type Node, type NodeProps } from '@xyflow/react'
-import { IconRenderer } from 'likec4:single-project'
 import { colorOf } from './colors'
-import { CARD_W, textOf, type CardData } from './model'
+import { CARD_W, type NodeData } from './compute'
+import { Icon } from './Icon'
 
-const isGroup = (kind: string) => kind === '@group'
-
-// handles invisíveis: as setas são "flutuantes" (FloatingEdge calcula a borda)
+// alvo invisível; a seta é solta em cima do card (Diagram.onConnectEnd) e desenhada pela FloatingEdge
 const Handles = () => (
   <>
-    <Handle type="target" position={Position.Left} className="handle" />
-    <Handle type="source" position={Position.Right} className="handle" />
+    <Handle type="target" position={Position.Left} className="handle" isConnectableStart={false} />
+    <Handle type="source" position={Position.Right} className="handle-source" title="Arraste até outro card" />
   </>
 )
 
-function Icon({ node }: CardData) {
-  if (!node.icon) return null
-  return <span className="icon"><IconRenderer node={node} /></span>
-}
-
-export function Card({ data, selected }: NodeProps<Node<CardData>>) {
-  const { node } = data
-  const description = textOf(node.description)
+export function Card({ data, selected }: NodeProps<Node<NodeData>>) {
   return (
-    <div className={`card ${selected ? 'selected' : ''}`} style={{ width: CARD_W, borderTopColor: colorOf(node.color) }}>
+    <div className={`card ${selected ? 'selected' : ''}`} style={{ width: CARD_W, borderTopColor: colorOf(data.color) }}>
       <Handles />
       <div className="card-head">
-        <Icon node={node} />
-        <div className="card-title">{node.title}</div>
+        <Icon name={data.icon} />
+        <div className="card-title">{data.title}</div>
       </div>
-      {node.technology && <div className="card-tech">{node.technology}</div>}
-      {description && <div className="card-desc">{description}</div>}
+      {data.technology && <div className="card-tech">{data.technology}</div>}
+      {data.description && <div className="card-desc">{data.description}</div>}
     </div>
   )
 }
 
-export function Container({ data, selected }: NodeProps<Node<CardData>>) {
-  const { node } = data
-  const color = colorOf(node.color)
+export function Container({ data, selected }: NodeProps<Node<NodeData>>) {
+  const color = colorOf(data.color)
   return (
-    <div className={`container ${isGroup(node.kind) ? 'group' : ''} ${selected ? 'selected' : ''}`} style={{ borderColor: color }}>
+    <div className={`container ${data.group ? 'group' : ''} ${selected ? 'selected' : ''}`} style={{ borderColor: color }}>
       <NodeResizer isVisible={selected} minWidth={200} minHeight={120} color={color} />
-      <Handles />
+      {!data.group && <Handles />}
       <div className="container-head" style={{ color }}>
-        <Icon node={node} />
-        <span>{node.title}</span>
+        <Icon name={data.icon} />
+        <span>{data.title}</span>
       </div>
     </div>
   )

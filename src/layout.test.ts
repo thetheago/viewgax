@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
-import { applySaved, autoLayout, isSaved, toSaved } from './layout'
+import { autoLayout, fillMissing, toPositions } from './layout'
 
 const nodes: Node[] = [
   { id: 'sys', type: 'container', position: { x: 0, y: 0 }, width: 500, height: 300, data: {} },
@@ -14,23 +14,22 @@ const edges: Edge[] = [
   { id: 'e3', source: 'sys', target: 'sys.a' }, // pai → filho: o ELK não aceita, deve ser ignorada
 ]
 
-describe('applySaved', () => {
-  it('salvo vence, novo mantém a posição automática, removido é ignorado', () => {
-    const saved = toSaved('v', nodes)
-    saved.nodes['sys.a'] = { x: 99, y: 77 }
-    delete saved.nodes['ext']
-    saved.nodes['sumiu'] = { x: 1, y: 1 }
-    const out = applySaved(nodes, saved)
-    expect(out.find(n => n.id === 'sys.a')!.position).toEqual({ x: 99, y: 77 })
-    expect(out.find(n => n.id === 'ext')!.position).toEqual({ x: 700, y: 0 })
-    expect(out.map(n => n.id)).toEqual(nodes.map(n => n.id))
-    expect(out[0]).toMatchObject({ width: 500, height: 300 })
+describe('fillMissing', () => {
+  it('mantém os salvos e posiciona só os novos', async () => {
+    const saved = toPositions(nodes)
+    delete saved['ext']
+    const out = await fillMissing(nodes, edges, saved, [])
+    expect(out.find(n => n.id === 'sys.a')!.position).toEqual({ x: 10, y: 60 })
+    expect(out.find(n => n.id === 'ext')!.position).not.toEqual({ x: 700, y: 0 })
+    expect(toPositions(out).sys).toEqual({ x: 0, y: 0, w: 500, h: 300 })
+    expect(toPositions(out)['sys.a']).toEqual({ x: 10, y: 60, p: 'sys' })
   })
 
-  it('valida o arquivo importado', () => {
-    expect(isSaved(toSaved('v', nodes))).toBe(true)
-    expect(isSaved({ nodes: {} })).toBe(false)
-    expect(isSaved(null)).toBe(false)
+  it('posição salva com outro pai é refeita', async () => {
+    const saved = toPositions(nodes)
+    saved['sys.a'] = { x: 10, y: 60 } // salvo quando era raiz
+    const out = await fillMissing(nodes, edges, saved, [])
+    expect(out.find(n => n.id === 'sys.a')!.position).not.toEqual({ x: 10, y: 60 })
   })
 })
 

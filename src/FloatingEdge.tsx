@@ -4,7 +4,7 @@ import {
   type Edge, type EdgeProps, type InternalNode,
 } from '@xyflow/react'
 import { colorOf } from './colors'
-import type { EdgeData } from './model'
+import type { EdgeData } from './compute'
 
 /** Clique no rótulo seleciona a seta (o rótulo fica fora do SVG da seta). */
 export const SelectEdge = createContext<(id: string) => void>(() => {})
@@ -52,8 +52,8 @@ export function FloatingEdge({ id, source, target, data, selected, style }: Edge
     sourceX: sp.x, sourceY: sp.y, sourcePosition: sideOf(s, sp),
     targetX: tp.x, targetY: tp.y, targetPosition: sideOf(t, tp),
   })
-  const color = colorOf(data.edge.color)
-  const label = data.edge.label
+  const color = colorOf(data.color)
+  const label = data.label
 
   return (
     <>
@@ -61,8 +61,8 @@ export function FloatingEdge({ id, source, target, data, selected, style }: Edge
         id={id}
         path={path}
         interactionWidth={18}
-        markerEnd={`url(#arrow-${data.edge.color})`}
-        style={{ stroke: color, strokeWidth: selected ? 3 : 1.6, strokeDasharray: DASH[data.edge.line], ...style }}
+        markerEnd={`url(#arrow-${data.color})`}
+        style={{ stroke: color, strokeWidth: selected ? 3 : 1.6, strokeDasharray: DASH[data.line], ...style }}
       />
       {(label || data.step) && (
         <EdgeLabelRenderer>
@@ -74,6 +74,13 @@ export function FloatingEdge({ id, source, target, data, selected, style }: Edge
             {data.step && <b className="step" style={{ background: color }}>{data.step}</b>}
             {label}
           </div>
+          {data.active && (
+            <div className="balloon nodrag nopan" style={{ transform: `translate(-50%, 0) translate(${lx}px, ${ly + 18}px)` }}>
+              <div className="balloon-step">Passo {data.step}</div>
+              <strong>{label || 'Sem título'}</strong>
+              <p>{data.notes || 'Sem explicação ainda — escreva no painel ao lado.'}</p>
+            </div>
+          )}
         </EdgeLabelRenderer>
       )}
     </>
