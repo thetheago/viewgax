@@ -1,6 +1,6 @@
-// Nomes de cor (herdados do tema LikeC4) → hex
+// Nomes de cor (herdados do tema LikeC4) → hex; tons claros para brilhar no fundo escuro
 export const PALETTE: Record<string, string> = {
-  primary: '#3b82f6', secondary: '#0ea5e9', muted: '#64748b', slate: '#475569', gray: '#94a3b8',
-  indigo: '#6366f1', green: '#16a34a', amber: '#f59e0b', red: '#ef4444',
+  primary: '#5b9dff', secondary: '#22d3ee', muted: '#8b95b5', slate: '#7a86a8', gray: '#a3acc9',
+  indigo: '#8b7bff', green: '#34d399', amber: '#fbbf24', red: '#fb7185',
 }
 export const colorOf = (name?: string | null) => PALETTE[name ?? ''] ?? PALETTE.primary

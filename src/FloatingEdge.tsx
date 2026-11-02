@@ -62,7 +62,7 @@ export function FloatingEdge({ id, source, target, data, selected, style }: Edge
         path={path}
         interactionWidth={18}
         markerEnd={`url(#arrow-${data.color})`}
-        style={{ stroke: color, strokeWidth: selected ? 3 : 1.6, strokeDasharray: DASH[data.line], ...style }}
+        style={{ stroke: color, strokeWidth: selected ? 2.6 : 1.6, strokeDasharray: DASH[data.line], filter: `drop-shadow(0 0 ${selected ? 6 : 3}px ${color})`, ...style }}
       />
       {(label || data.step) && (
         <EdgeLabelRenderer>
