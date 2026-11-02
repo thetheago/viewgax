@@ -253,11 +253,10 @@ export function Diagram({ doc, view, update, editing, setEditing }: Props) {
           </>
         )}
         {status && <span className="status">{status}</span>}
-        <label className="mode-switch" title="Alternar entre visualizar e editar">
-          <span className={editing ? '' : 'on'}>Visualizar</span>
-          <input type="checkbox" role="switch" checked={editing} onChange={e => setEditing(e.target.checked)} />
-          <span className={editing ? 'on' : ''}>Editar</span>
-        </label>
+        <div className="mode-switch" role="group" aria-label="Modo">
+          <button className={editing ? '' : 'on'} aria-pressed={!editing} onClick={() => setEditing(false)}>Visualizar</button>
+          <button className={editing ? 'on' : ''} aria-pressed={editing} onClick={() => setEditing(true)}>Editar</button>
+        </div>
       </div>
       <div className="canvas">
         <ArrowMarkers colors={edgeColors} />
