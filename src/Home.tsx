@@ -51,12 +51,6 @@ export function Home({ doc, onAdd, onDelete, fileActions }: Props) {
       <div className="home-hero">
         <h1>Como os sistemas <span>conversam.</span></h1>
         <p>Visões da arquitetura e fluxos passo a passo: quem chama quem, por qual protocolo, fila e payload.</p>
-        <div className="stats">
-          <div><strong>{doc.elements.length}</strong><span>cards</span></div>
-          <div><strong>{doc.relations.length}</strong><span>comunicações</span></div>
-          <div><strong>{views.length}</strong><span>visões</span></div>
-          <div><strong>{flows.length}</strong><span>fluxos</span></div>
-        </div>
       </div>
       <Section title="Visões" type="view" views={views} onAdd={() => onAdd('view')} onDelete={onDelete} />
       <Section title="Fluxos" type="flow" views={flows} onAdd={() => onAdd('flow')} onDelete={onDelete} />
