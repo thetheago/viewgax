@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { InvalidDoc, loadDoc, saveDoc } from './docStore.ts'
+import { Conflict, InvalidDoc, loadDoc, saveDoc, versionOf } from './docStore.ts'
 
 const valid = JSON.stringify({ version: 1, elements: [], relations: [], views: [] })
 
@@ -27,5 +27,12 @@ describe('docStore', async () => {
     await expect(saveDoc(file, '{oops')).rejects.toBeInstanceOf(InvalidDoc)
     await expect(saveDoc(file, '{"version":2}')).rejects.toBeInstanceOf(InvalidDoc)
     expect(await readFile(file, 'utf8')).toBe(before)
+  })
+
+  it('recusa gravar sobre versão que outra pessoa já mudou', async () => {
+    const read = versionOf(await readFile(file, 'utf8'))
+    const next = await saveDoc(file, valid, read)
+    await expect(saveDoc(file, valid, read)).rejects.toBeInstanceOf(Conflict)
+    await expect(saveDoc(file, valid, next)).resolves.toBe(next)
   })
 })

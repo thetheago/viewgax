@@ -4,6 +4,7 @@ import { Diagram } from './Diagram'
 import { newId, type View } from './doc'
 import { Home } from './Home'
 import { Brand } from './Logo'
+import { Search, type Focus } from './Search'
 import { readDoc, useDoc, type SaveStatus } from './store'
 
 const hashView = () => decodeURIComponent(location.hash.slice(1))
@@ -13,6 +14,7 @@ const STATUS_TEXT: Record<SaveStatus, string> = {
   salvo: 'Tudo salvo',
   salvando: 'Salvando…',
   erro: 'Erro ao salvar — a próxima edição tenta de novo',
+  conflito: 'Outra pessoa salvou antes. Recarregue a página — suas últimas edições não foram salvas',
   'sem servidor': 'Somente leitura: servidor indisponível',
 }
 
@@ -30,16 +32,35 @@ function ViewList({ title, type, views, current, onAdd }: {
 }
 
 export function App() {
-  const { doc, status, update, replace } = useDoc()
+  const { doc, status, update, replace, undo, redo } = useDoc()
   const [viewId, setViewId] = useState(hashView)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [focus, setFocus] = useState<Focus | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const onHash = () => setViewId(hashView())
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
+
+  // atalhos globais: Ctrl+K busca; Ctrl+Z / Ctrl+Shift+Z (ou Ctrl+Y) desfaz e refaz
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      const key = e.key.toLowerCase()
+      if (key === 'k') {
+        e.preventDefault()
+        setSearching(true)
+      }
+      if ((e.target as HTMLElement).closest('input, textarea, select')) return // o campo tem o próprio desfazer
+      if (key === 'z' && !e.shiftKey) undo()
+      if ((key === 'z' && e.shiftKey) || key === 'y') redo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   if (!doc) return <div className="loading">Carregando…</div>
   const view = doc.views.find(v => v.id === viewId)
@@ -75,18 +96,26 @@ export function App() {
 
   const remove = (id: string) => update(d => void (d.views = d.views.filter(v => v.id !== id)))
 
-  if (!view) return <Home doc={doc} onAdd={add} onDelete={remove} fileActions={fileActions} />
+  const goTo = (target: string, id?: string) => {
+    location.hash = target
+    setFocus(id ? { id, at: Date.now() } : null)
+  }
+  const search = searching && <Search doc={doc} current={view?.id} onPick={goTo} onClose={() => setSearching(false)} />
+
+  if (!view) return <>{search}<Home doc={doc} onAdd={add} onDelete={remove} fileActions={fileActions} /></>
 
   return (
     <div className="app">
+      {search}
       <nav className="sidebar">
         <Brand />
+        <button className="search-open" onClick={() => setSearching(true)}>Buscar… <kbd>Ctrl K</kbd></button>
         <ViewList title="Visões" type="view" views={doc.views.filter(v => v.type === 'view')} current={view.id} onAdd={() => add('view')} />
         <ViewList title="Fluxos" type="flow" views={doc.views.filter(v => v.type === 'flow')} current={view.id} onAdd={() => add('flow')} />
         {fileActions}
       </nav>
       <ReactFlowProvider key={view.id}>
-        <Diagram doc={doc} view={view} update={update} editing={editing && status !== 'sem servidor'} setEditing={setEditing} />
+        <Diagram doc={doc} view={view} update={update} editing={editing && status !== 'sem servidor'} setEditing={setEditing} focus={focus} />
       </ReactFlowProvider>
     </div>
   )

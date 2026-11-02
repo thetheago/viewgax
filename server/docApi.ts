@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'node:http'
 import type { Connect, Plugin } from 'vite'
-import { InvalidDoc, loadDoc, MAX_BYTES, saveDoc } from './docStore.ts'
+import { Conflict, InvalidDoc, loadDoc, MAX_BYTES, saveDoc, versionOf } from './docStore.ts'
 
 const FILE = process.env.DATA_FILE ?? 'storage/fortime.json'
 const SEED = 'data/fortime.json'
@@ -23,12 +23,14 @@ const handler: Connect.NextHandleFunction = async (req, res, next) => {
   if (req.url?.split('?')[0] !== '/api/doc') return next()
   try {
     if (req.method === 'GET') {
+      const text = await loadDoc(FILE, SEED)
       res.setHeader('content-type', 'application/json')
-      res.end(await loadDoc(FILE, SEED))
+      res.setHeader('etag', versionOf(text))
+      res.end(text)
       return
     }
     if (req.method === 'PUT') {
-      await saveDoc(FILE, await readBody(req))
+      res.setHeader('etag', await saveDoc(FILE, await readBody(req), req.headers['if-match']))
       res.statusCode = 204
       res.end()
       return
@@ -36,7 +38,7 @@ const handler: Connect.NextHandleFunction = async (req, res, next) => {
     res.statusCode = 405
     res.end()
   } catch (err) {
-    res.statusCode = err instanceof InvalidDoc ? 400 : err instanceof TooLarge ? 413 : 500
+    res.statusCode = err instanceof InvalidDoc ? 400 : err instanceof TooLarge ? 413 : err instanceof Conflict ? 409 : 500
     if (res.statusCode === 500) console.error('[viewgax] falha no /api/doc', err)
     res.end(err instanceof Error ? err.message : 'erro')
   }

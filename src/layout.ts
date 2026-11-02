@@ -27,18 +27,41 @@ export async function fillMissing<T extends Node>(nodes: T[], edges: Edge[], sav
   return nodes.map(n => (valid(n) ? n : auto.get(n.id)!))
 }
 
-export type Preset = 'layered' | 'grid'
-export const PRESETS: Record<Preset, string> = { layered: 'Camadas →', grid: 'Grade' }
+export type Preset = 'layered' | 'down' | 'tree' | 'radial' | 'grid'
+export const PRESETS: Record<Preset, string> = {
+  layered: 'Camadas →', down: 'Camadas ↓', tree: 'Árvore', radial: 'Radial', grid: 'Grade',
+}
 
+const LAYERED = {
+  'elk.algorithm': 'layered',
+  'elk.direction': 'RIGHT',
+  'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '90',
+  'elk.spacing.nodeNode': '40',
+}
 const OPTIONS: Record<Preset, Record<string, string>> = {
-  layered: {
-    'elk.algorithm': 'layered',
-    'elk.direction': 'RIGHT',
-    'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-    'elk.layered.spacing.nodeNodeBetweenLayers': '90',
-    'elk.spacing.nodeNode': '40',
-  },
+  layered: LAYERED,
+  down: { ...LAYERED, 'elk.direction': 'DOWN' },
+  tree: { 'elk.algorithm': 'mrtree', 'elk.direction': 'RIGHT', 'elk.spacing.nodeNode': '50' },
+  radial: { 'elk.algorithm': 'radial', 'elk.spacing.nodeNode': '60' },
   grid: { 'elk.algorithm': 'rectpacking', 'elk.spacing.nodeNode': '40' },
+}
+// só o layered entende arestas entre níveis; os outros recebem as arestas subidas para os nós raiz
+const isLayered = (p: Preset) => p === 'layered' || p === 'down'
+
+/** Árvore e radial travam com ciclo (estouro de pilha no ELK): fica só uma floresta das arestas. */
+export function spanningForest(pairs: string[][]): string[][] {
+  const root = new Map<string, string>()
+  const find = (x: string): string => {
+    const p = root.get(x) ?? x
+    return p === x ? x : find(p)
+  }
+  return pairs.filter(([a, b]) => {
+    const [ra, rb] = [find(a), find(b)]
+    if (ra === rb) return false
+    root.set(rb, ra)
+    return true
+  })
 }
 // espaço para o título do container
 const PADDING = '[top=56,left=24,bottom=24,right=24]'
@@ -52,7 +75,8 @@ export async function autoLayout<T extends Node>(nodes: T[], edges: Edge[], pres
   }
 
   const elkNodes = new Map<string, ElkNode>(
-    nodes.map(n => [n.id, { id: n.id, children: [], layoutOptions: { ...OPTIONS[preset], 'elk.padding': PADDING } }]),
+    // árvore e radial só fazem sentido entre os nós raiz; dentro de um container os filhos viram grade
+    nodes.map(n => [n.id, { id: n.id, children: [], layoutOptions: { ...(isLayered(preset) ? OPTIONS[preset] : OPTIONS.grid), 'elk.padding': PADDING } }]),
   )
   const roots: ElkNode[] = []
   for (const n of nodes) {
@@ -65,14 +89,23 @@ export async function autoLayout<T extends Node>(nodes: T[], edges: Edge[], pres
     ;(parent ? parent.children! : roots).push(e)
   }
 
-  const layoutEdges = preset === 'layered'
-    ? edges.filter(e => !isAncestor(e.source, e.target) && !isAncestor(e.target, e.source))
-    : []
+  const rootOf = (id: string) => {
+    let r = id
+    for (let p = parentOf.get(r); p; p = parentOf.get(p)) r = p
+    return r
+  }
+  const rootPairs = [...new Set(edges.map(e => `${rootOf(e.source)}\n${rootOf(e.target)}`))]
+    .map(k => k.split('\n'))
+    .filter(([a, b]) => a !== b)
+  const layoutEdges = preset === 'grid' ? []
+    : isLayered(preset)
+      ? edges.filter(e => !isAncestor(e.source, e.target) && !isAncestor(e.target, e.source)).map(e => [e.source, e.target])
+      : preset === 'tree' || preset === 'radial' ? spanningForest(rootPairs) : rootPairs
   const graph: ElkNode = {
     id: '__root',
-    layoutOptions: { ...OPTIONS[preset], 'elk.partitioning.activate': String(columns.length > 0) },
+    layoutOptions: { ...OPTIONS[preset], 'elk.partitioning.activate': String(isLayered(preset) && columns.length > 0) },
     children: roots,
-    edges: layoutEdges.map(e => ({ id: e.id, sources: [e.source], targets: [e.target] })),
+    edges: layoutEdges.map(([source, target], i) => ({ id: `e${i}`, sources: [source], targets: [target] })),
   }
   // ELK pesa 1,6 MB: só baixa quando algum layout é calculado
   const { default: ELK } = await import('elkjs/lib/elk.bundled.js')

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  applyNodeChanges, Background, Controls, ReactFlow, useNodesInitialized, useReactFlow,
+  applyNodeChanges, Background, getNodesBounds, ViewportPortal, Controls, ReactFlow, useNodesInitialized, useReactFlow,
   type FinalConnectionState, type Node, type NodeChange,
 } from '@xyflow/react'
 import { computeView, withAncestors, type NodeData } from './compute'
@@ -9,9 +9,10 @@ import { ArrowMarkers, edgeTypes, SelectEdge } from './FloatingEdge'
 import { autoLayout, fillMissing, hasValidPosition, PRESETS, toPositions, type Preset } from './layout'
 import { nodeTypes } from './nodes'
 import { Panel, type Selection } from './Panel'
+import type { Focus } from './Search'
 import { Stepper } from './Stepper'
 
-type Props = { doc: Doc; view: View; update: (fn: (d: Doc) => void) => void; editing: boolean; setEditing: (on: boolean) => void }
+type Props = { doc: Doc; view: View; update: (fn: (d: Doc) => void) => void; editing: boolean; setEditing: (on: boolean) => void; focus: Focus | null }
 
 // fim de arrasto ou de redimensionamento = edição do usuário que vale salvar
 const isEditEnd = (c: NodeChange) =>
@@ -45,13 +46,13 @@ function related(edges: { id: string; source: string; target: string }[], select
   return ids
 }
 
-export function Diagram({ doc, view, update, editing, setEditing }: Props) {
+export function Diagram({ doc, view, update, editing, setEditing, focus }: Props) {
   const computed = useMemo(() => computeView(doc, view), [doc, view])
   const [nodes, setNodes] = useState<Node<NodeData>[]>(computed.nodes)
   const [selection, setSelection] = useState<Selection>(null)
   const [status, setStatus] = useState('')
   const [pendingSave, setPendingSave] = useState(false)
-  const { fitView, screenToFlowPosition } = useReactFlow()
+  const { fitView, screenToFlowPosition, getNodes } = useReactFlow()
   const [from] = useState(() => doc.views.find(v => v.id === cameFrom))
   useEffect(() => void (cameFrom = null), [])
 
@@ -89,6 +90,22 @@ export function Diagram({ doc, view, update, editing, setEditing }: Props) {
     fitView()
   }, [initialized, fitView])
 
+  // layout novo: enquadra quando os cards já estão nas posições novas
+  const refit = useRef(false)
+  useEffect(() => {
+    if (!refit.current) return
+    refit.current = false
+    requestAnimationFrame(() => fitView({ duration: 300 }))
+  }, [nodes, fitView])
+
+  // veio da busca (Ctrl+K): seleciona e centraliza
+  useEffect(() => {
+    if (!focus || !initialized) return
+    const [source, target] = focus.id.split('->')
+    setSelection({ type: target ? 'edge' : 'node', id: focus.id })
+    fitView({ nodes: target ? [{ id: source }, { id: target }] : [{ id: source }], padding: 0.5, maxZoom: 1.1, duration: 400 })
+  }, [focus, initialized, fitView])
+
   // fluxo: aproxima a câmera do passo selecionado
   useEffect(() => {
     if (view.type !== 'flow' || selection?.type !== 'edge') return
@@ -101,10 +118,30 @@ export function Diagram({ doc, view, update, editing, setEditing }: Props) {
     try {
       savePositions(await autoLayout(nodes, computed.edges, preset, groupColumns(view)))
       setStatus('')
-      requestAnimationFrame(() => fitView({ duration: 300 }))
+      refit.current = true
     } catch (err) {
       setStatus(`erro no layout: ${(err as Error).message}`)
     }
+  }
+
+  // a visão inteira em tamanho real, sem a seleção apagando o resto
+  async function exportImage(format: 'png' | 'svg') {
+    setSelection(null)
+    await new Promise(requestAnimationFrame)
+    const { toPng, toSvg } = await import('html-to-image')
+    const box = getNodesBounds(getNodes())
+    const pad = 60
+    const width = box.width + pad * 2
+    const height = box.height + pad * 2
+    const options = {
+      backgroundColor: '#fbfbfe', width, height,
+      style: { width: `${width}px`, height: `${height}px`, transform: `translate(${pad - box.x}px, ${pad - box.y}px) scale(1)` },
+    }
+    const viewport = document.querySelector<HTMLElement>('.react-flow__viewport')!
+    const link = document.createElement('a')
+    link.download = `${view.title || view.id}.${format}`
+    link.href = format === 'png' ? await toPng(viewport, { ...options, pixelRatio: 2 }) : await toSvg(viewport, options)
+    link.click()
   }
 
   // centro da tela; se já tem card ali, anda para a direita até achar espaço
@@ -253,13 +290,17 @@ export function Diagram({ doc, view, update, editing, setEditing }: Props) {
           </>
         )}
         {status && <span className="status">{status}</span>}
+        <select className="export" value="" onChange={e => e.target.value && exportImage(e.target.value as 'png' | 'svg')}>
+          <option value="">Exportar…</option>
+          <option value="png">Imagem PNG</option>
+          <option value="svg">Vetor SVG</option>
+        </select>
         <div className="mode-switch" role="group" aria-label="Modo">
           <button className={editing ? '' : 'on'} aria-pressed={!editing} onClick={() => setEditing(false)}>Visualizar</button>
           <button className={editing ? 'on' : ''} aria-pressed={editing} onClick={() => setEditing(true)}>Editar</button>
         </div>
       </div>
       <div className="canvas">
-        <ArrowMarkers colors={edgeColors} />
         <SelectEdge.Provider value={selectEdge}>
           <ReactFlow
             nodes={shownNodes}
@@ -278,6 +319,8 @@ export function Diagram({ doc, view, update, editing, setEditing }: Props) {
             deleteKeyCode={null}
             minZoom={0.1}
           >
+            {/* dentro do viewport: assim as pontas de seta vão junto na imagem exportada */}
+            <ViewportPortal><ArrowMarkers colors={edgeColors} /></ViewportPortal>
             <Background gap={20} />
             <Controls showInteractive={false} />
           </ReactFlow>
