@@ -62,8 +62,14 @@ export function FloatingEdge({ id, source, target, data, selected, style }: Edge
         path={path}
         interactionWidth={18}
         markerEnd={`url(#arrow-${data.color})`}
-        style={{ stroke: color, strokeWidth: selected ? 2.6 : 1.6, strokeDasharray: DASH[data.line], filter: `drop-shadow(0 0 ${selected ? 6 : 3}px ${color})`, ...style }}
+        style={{ stroke: color, strokeWidth: selected ? 2.6 : 1.6, strokeDasharray: DASH[data.line], ...style }}
       />
+      {data.active && (
+        // pontinho que percorre o passo ativo, da origem ao destino
+        <circle key={path} r={6} className="flow-dot">
+          <animateMotion dur="1.4s" repeatCount="indefinite" path={path} />
+        </circle>
+      )}
       {(label || data.step) && (
         <EdgeLabelRenderer>
           <div
