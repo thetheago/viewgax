@@ -2,12 +2,11 @@
 :root {
   --page: #eef0f6; --surface: #fff; --soft: #f6f7fb; --sunken: #f0f1f7;
   --ink: #1a1b2e; --orbit: linear-gradient(90deg, #7c5cff, #16c7d9);
-  /* fundo = o quadrado da logo: tinta escura com brilho violeta e ciano; os painéis continuam claros para leitura */
+  /* fundo = o gradiente da logo (violeta → ciano), suavizado; painéis de vidro branco por cima */
   --wallpaper:
-    radial-gradient(1000px 700px at 0% 0%, rgb(124 92 255 / .55), transparent 60%),
-    radial-gradient(1000px 700px at 100% 100%, rgb(22 199 217 / .4), transparent 60%),
-    #14152a;
-  --glass: rgb(255 255 255 / .95); --glass-border: rgb(255 255 255 / .35); --glass-shadow: 0 16px 50px rgb(0 0 0 / .35);
+    radial-gradient(900px 600px at 15% 0%, rgb(255 255 255 / .25), transparent 60%),
+    linear-gradient(135deg, #8a74ff 0%, #7b8cf4 45%, #4fc6da 100%);
+  --glass: rgb(255 255 255 / .78); --glass-border: rgb(255 255 255 / .6); --glass-shadow: 0 14px 44px rgb(40 30 120 / .22);
   --border: #e6e8f0; --border-strong: #d8dbe6;
   --text: #1a1b2e; --muted: #6e7191; --dim: #a0a3bd;
   --violet: #6d5efc; --cyan: #0eb5c9; --accent: var(--violet);
@@ -188,7 +187,7 @@ textarea { resize: vertical; }
 .home-actions .file { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .home-hero { padding: 40px 0 12px; }
 .home-hero h1 { margin: 0; font-size: 52px; font-weight: 750; letter-spacing: -.05em; line-height: 1.05; color: #fff; }
-.home-hero h1 span, .brand-accent { background: var(--orbit); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand-accent { background: var(--orbit); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .home-hero p { max-width: 600px; margin: 14px 0 0; font-size: 16px; line-height: 1.6; color: var(--muted); }
 .stats { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
 .stats div { min-width: 130px; padding: 14px 18px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
@@ -269,11 +268,14 @@ kbd { padding: 1px 6px; border-radius: 6px; font: 600 11px var(--mono); color: v
 .tile-new { border-color: rgb(255 255 255 / .9); background: rgb(255 255 255 / .25); }
 
 /* texto direto sobre o fundo escuro da tela inicial */
-.home-hero p { color: #b9bad8; }
+.home-hero p { color: rgb(255 255 255 / .85); }
 .home-section h2 { color: #fff; }
 .home-section h2 span { color: #fff; background: rgb(255 255 255 / .1); border-color: rgb(255 255 255 / .15); }
 .home-header .brand { color: #fff; }
-.home-header .save-status { color: #b9bad8; }
+.home-header .save-status { color: rgb(255 255 255 / .85); }
 .tile-new { color: #fff; border-color: rgb(255 255 255 / .3); background: rgb(255 255 255 / .06); }
 .tile-new:hover { background: rgb(255 255 255 / .12); }
 .canvas { background: #fbfbfe; }
+/* no fundo colorido o destaque do título fica em tinta */
+.home-hero h1 span { color: var(--ink); }
+.home-header .brand-accent { background: none; color: var(--ink); }
