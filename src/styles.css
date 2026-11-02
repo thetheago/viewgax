@@ -1,7 +1,13 @@
 /* viewgax — vidro (macOS): painéis translúcidos com desfoque sobre um fundo em gradiente suave. Visões = violeta, fluxos = ciano. */
 :root {
   --page: #eef0f6; --surface: #fff; --soft: #f6f7fb; --sunken: #f0f1f7;
-  --wallpaper: linear-gradient(135deg, #c9d6ff 0%, #e2e2ff 35%, #ffd6e8 70%, #d4f1ff 100%);
+  --ink: #1a1b2e; --orbit: linear-gradient(90deg, #7c5cff, #16c7d9);
+  /* fundo = a logo ampliada: anel de órbita violeta→ciano sobre lavanda, com o "passo" ciano */
+  --wallpaper:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 1000' preserveAspectRatio='xMidYMid slice'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c5cff'/%3E%3Cstop offset='1' stop-color='%2316c7d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cellipse cx='1050' cy='420' rx='780' ry='300' fill='none' stroke='url(%23g)' stroke-width='2' opacity='.35' transform='rotate(-24 1050 420)'/%3E%3Cellipse cx='1050' cy='420' rx='560' ry='200' fill='none' stroke='url(%23g)' stroke-width='1.5' opacity='.2' transform='rotate(-24 1050 420)'/%3E%3Ccircle cx='1660' cy='150' r='14' fill='%2316c7d9' opacity='.5'/%3E%3C/svg%3E") center / cover no-repeat,
+    radial-gradient(900px 600px at 0% 0%, rgb(124 92 255 / .35), transparent 60%),
+    radial-gradient(900px 600px at 100% 100%, rgb(22 199 217 / .3), transparent 60%),
+    #e9e8fb;
   --glass: rgb(255 255 255 / .55); --glass-border: rgb(255 255 255 / .7); --glass-shadow: 0 10px 40px rgb(80 80 140 / .15);
   --border: #e6e8f0; --border-strong: #d8dbe6;
   --text: #1a1b2e; --muted: #6e7191; --dim: #a0a3bd;
@@ -41,7 +47,6 @@ button.danger:hover:not(:disabled) { border-color: rgb(229 72 77 / .4); backgrou
 
 /* ── marca ───────────────────────────── */
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; font-weight: 750; font-size: 19px; letter-spacing: -.05em; }
-.brand-accent { background: linear-gradient(90deg, #7c5cff, #16c7d9); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .brand img { display: block; border-radius: 10px; }
 
 /* ── app / sidebar ───────────────────── */
@@ -56,7 +61,8 @@ button.danger:hover:not(:disabled) { border-color: rgb(229 72 77 / .4); backgrou
 .sidebar h4.flow .add:hover { background: var(--cyan-soft); color: var(--flow); }
 .sidebar a { display: block; padding: 8px 10px; margin: 1px 0; border-radius: 12px; color: #45475f; text-decoration: none; line-height: 1.3; transition: background .15s, color .15s; }
 .sidebar a:hover { background: var(--soft); color: var(--text); }
-.sidebar a.active { background: rgb(255 255 255 / .85); color: #3a2fd8; font-weight: 600; box-shadow: 0 2px 8px rgb(80 80 140 / .12); }
+.sidebar a.active { position: relative; padding-right: 26px; background: var(--ink); color: #fff; font-weight: 600; box-shadow: 0 6px 18px rgb(26 27 46 / .25); }
+.sidebar a.active::after { content: ""; position: absolute; right: 11px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
 .sidebar .file { margin-top: auto; padding: 14px 4px 0; display: grid; gap: 8px; border-top: 1px solid var(--border); }
 .save-status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
 .save-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgb(31 181 122 / .15); }
@@ -177,14 +183,13 @@ textarea { resize: vertical; }
 .steps button { border: 0; padding: 3px 0; text-align: left; color: var(--flow); background: none; }
 
 /* ── tela inicial ────────────────────── */
-.home { min-height: 100%; padding: 0 max(32px, calc((100% - 1180px) / 2)) 64px; background:
-  radial-gradient(700px 380px at 90% -5%, rgb(25 195 214 / .14), transparent 65%),
-  radial-gradient(700px 420px at 5% -5%, rgb(109 94 252 / .16), transparent 65%); }
+.home { min-height: 100%; padding: 0 max(32px, calc((100% - 1180px) / 2)) 64px; }
 .home-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0; }
 .home-header .brand { font-size: 20px; }
 .home-actions .file { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .home-hero { padding: 40px 0 12px; }
-.home-hero h1 { margin: 0; font-size: 48px; font-weight: 800; letter-spacing: -.045em; line-height: 1.05; color: var(--text); }
+.home-hero h1 { margin: 0; font-size: 52px; font-weight: 750; letter-spacing: -.05em; line-height: 1.05; color: var(--text); }
+.home-hero h1 span, .brand-accent { background: var(--orbit); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .home-hero p { max-width: 600px; margin: 14px 0 0; font-size: 16px; line-height: 1.6; color: var(--muted); }
 .stats { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
 .stats div { min-width: 130px; padding: 14px 18px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
@@ -219,7 +224,7 @@ textarea { resize: vertical; }
 .mode-switch { margin-left: auto; display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--sunken); }
 .mode-switch button { padding: 6px 14px; border: 0; font-weight: 600; color: var(--muted); background: transparent; }
 .mode-switch button:hover:not(:disabled) { background: transparent; color: var(--text); }
-.mode-switch button.on { color: var(--text); background: #fff; box-shadow: var(--shadow-sm); }
+.mode-switch button.on { color: #fff; background: var(--ink); box-shadow: 0 4px 12px rgb(26 27 46 / .25); }
 .diagram.reading .handle-source, .diagram.reading .react-flow__resize-control { display: none; }
 .diagram.reading .title-input { cursor: default; }
 .diagram.reading .title-input:hover, .diagram.reading .title-input:focus { border-color: transparent; background: transparent; box-shadow: none; }

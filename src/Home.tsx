@@ -49,7 +49,7 @@ export function Home({ doc, onAdd, onDelete, fileActions }: Props) {
         <div className="home-actions">{fileActions}</div>
       </header>
       <div className="home-hero">
-        <h1>Como os sistemas conversam.</h1>
+        <h1>Como os sistemas <span>conversam.</span></h1>
         <p>Visões da arquitetura e fluxos passo a passo: quem chama quem, por qual protocolo, fila e payload.</p>
         <div className="stats">
           <div><strong>{doc.elements.length}</strong><span>cards</span></div>
