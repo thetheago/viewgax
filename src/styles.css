@@ -40,7 +40,8 @@ button.danger:hover:not(:disabled) { border-color: rgb(229 72 77 / .4); backgrou
 :focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
 
 /* ── marca ───────────────────────────── */
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; font-weight: 800; font-size: 18px; letter-spacing: -.03em; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; font-weight: 750; font-size: 19px; letter-spacing: -.05em; }
+.brand-accent { background: linear-gradient(90deg, #7c5cff, #16c7d9); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .brand img { display: block; border-radius: 10px; }
 
 /* ── app / sidebar ───────────────────── */
