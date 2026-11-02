@@ -1,6 +1,8 @@
-/* viewgax — "bento" claro: painéis flutuantes arredondados sobre fundo suave. Visões = violeta, fluxos = ciano (logo). */
+/* viewgax — vidro (macOS): painéis translúcidos com desfoque sobre um fundo em gradiente suave. Visões = violeta, fluxos = ciano. */
 :root {
   --page: #eef0f6; --surface: #fff; --soft: #f6f7fb; --sunken: #f0f1f7;
+  --wallpaper: linear-gradient(135deg, #c9d6ff 0%, #e2e2ff 35%, #ffd6e8 70%, #d4f1ff 100%);
+  --glass: rgb(255 255 255 / .55); --glass-border: rgb(255 255 255 / .7); --glass-shadow: 0 10px 40px rgb(80 80 140 / .15);
   --border: #e6e8f0; --border-strong: #d8dbe6;
   --text: #1a1b2e; --muted: #6e7191; --dim: #a0a3bd;
   --violet: #6d5efc; --cyan: #0eb5c9; --accent: var(--violet);
@@ -18,7 +20,9 @@
 }
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; }
-body { background: var(--page); }
+body { background: var(--wallpaper) fixed; }
+/* painel de vidro: translúcido, desfoca o fundo atrás */
+.sidebar, .toolbar, .panel { background: var(--glass); backdrop-filter: blur(30px) saturate(1.8); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); }
 ::selection { background: rgb(109 94 252 / .2); }
 
 button, select {
@@ -41,7 +45,7 @@ button.danger:hover:not(:disabled) { border-color: rgb(229 72 77 / .4); backgrou
 
 /* ── app / sidebar ───────────────────── */
 .app { display: flex; gap: 12px; height: 100%; padding: 12px; }
-.sidebar { width: 236px; flex: none; display: flex; flex-direction: column; padding: 18px 12px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.sidebar { width: 236px; flex: none; display: flex; flex-direction: column; padding: 18px 12px; overflow: auto; border-radius: var(--radius-lg); }
 .sidebar .brand, .sidebar .brand:hover { display: flex; padding: 0 8px 20px; background: none; }
 .sidebar h4 { display: flex; align-items: center; margin: 14px 8px 6px; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .09em; color: var(--dim); }
 .sidebar h4::before { content: ""; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; background: var(--view); }
@@ -51,7 +55,7 @@ button.danger:hover:not(:disabled) { border-color: rgb(229 72 77 / .4); backgrou
 .sidebar h4.flow .add:hover { background: var(--cyan-soft); color: var(--flow); }
 .sidebar a { display: block; padding: 8px 10px; margin: 1px 0; border-radius: 12px; color: #45475f; text-decoration: none; line-height: 1.3; transition: background .15s, color .15s; }
 .sidebar a:hover { background: var(--soft); color: var(--text); }
-.sidebar a.active { background: var(--violet-soft); color: var(--violet); font-weight: 600; }
+.sidebar a.active { background: rgb(255 255 255 / .85); color: #3a2fd8; font-weight: 600; box-shadow: 0 2px 8px rgb(80 80 140 / .12); }
 .sidebar .file { margin-top: auto; padding: 14px 4px 0; display: grid; gap: 8px; border-top: 1px solid var(--border); }
 .save-status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
 .save-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgb(31 181 122 / .15); }
@@ -65,12 +69,12 @@ button.danger:hover:not(:disabled) { border-color: rgb(229 72 77 / .4); backgrou
 /* ── diagrama ────────────────────────── */
 .diagram { flex: 1; display: grid; gap: 12px; grid-template-columns: 1fr; grid-template-rows: auto 1fr; min-width: 0; }
 .diagram.with-panel { grid-template-columns: 1fr 380px; }
-.toolbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.toolbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 10px 14px; border-radius: var(--radius-lg); }
 .title-input { field-sizing: content; min-width: 120px; font: inherit; font-size: 18px; font-weight: 750; letter-spacing: -.02em; margin-right: 8px; padding: 4px 8px; max-width: 40vw; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: 10px; }
 .title-input:hover { background: var(--soft); }
 .title-input:focus { outline: none; border-color: var(--violet); background: #fff; box-shadow: 0 0 0 4px rgb(109 94 252 / .12); }
-.canvas { grid-column: 1; grid-row: 2; position: relative; min-height: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: var(--shadow-sm);
-  background: radial-gradient(900px 500px at 100% 0%, rgb(25 195 214 / .06), transparent 60%), radial-gradient(800px 500px at 0% 100%, rgb(109 94 252 / .06), transparent 60%), #fbfbfe; }
+.canvas { grid-column: 1; grid-row: 2; position: relative; min-height: 0; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid rgb(255 255 255 / .8); box-shadow: var(--glass-shadow);
+  background: rgb(255 255 255 / .7); backdrop-filter: blur(20px); }
 .react-flow { --xy-background-color: transparent; }
 .react-flow__background { --xy-background-pattern-color: #d5d8e6; }
 .react-flow__controls { margin: 14px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-md); }
@@ -121,9 +125,9 @@ button.danger:hover:not(:disabled) { border-color: rgb(229 72 77 / .4); backgrou
 .flow-dot { fill: var(--flow); stroke: #fff; stroke-width: 2.5; filter: drop-shadow(0 1px 4px rgb(14 181 201 / .6)); }
 
 /* ── painel ──────────────────────────── */
-.panel { grid-column: 2; grid-row: 2; padding: 18px; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.panel { grid-column: 2; grid-row: 2; padding: 18px; overflow: auto; border-radius: var(--radius-lg); }
 .panel h3 { margin: 20px 0 8px; font-size: 13px; font-weight: 700; }
-.panel-header { display: flex; align-items: flex-start; gap: 8px; margin: -18px -18px 16px; padding: 18px 18px 14px; border-bottom: 1px solid var(--border); position: sticky; top: -18px; z-index: 1; background: rgb(255 255 255 / .92); backdrop-filter: blur(8px); }
+.panel-header { display: flex; align-items: flex-start; gap: 8px; margin: -18px -18px 16px; padding: 18px 18px 14px; border-bottom: 1px solid var(--border); position: sticky; top: -18px; z-index: 1; background: rgb(255 255 255 / .6); backdrop-filter: blur(20px); }
 .panel-header > div { flex: 1; min-width: 0; }
 .panel-header h2 { margin: 4px 0 0; font-size: 19px; font-weight: 750; letter-spacing: -.02em; line-height: 1.25; overflow-wrap: anywhere; }
 .panel-header .close { width: 30px; height: 30px; padding: 0; color: var(--muted); background: var(--soft); border-color: transparent; }
@@ -174,7 +178,7 @@ textarea { resize: vertical; }
 /* ── tela inicial ────────────────────── */
 .home { min-height: 100%; padding: 0 max(32px, calc((100% - 1180px) / 2)) 64px; background:
   radial-gradient(700px 380px at 90% -5%, rgb(25 195 214 / .14), transparent 65%),
-  radial-gradient(700px 420px at 5% -5%, rgb(109 94 252 / .16), transparent 65%), var(--page); }
+  radial-gradient(700px 420px at 5% -5%, rgb(109 94 252 / .16), transparent 65%); }
 .home-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0; }
 .home-header .brand { font-size: 20px; }
 .home-actions .file { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
@@ -254,3 +258,7 @@ kbd { padding: 1px 6px; border-radius: 6px; font: 600 11px var(--mono); color: v
 
 .stepper .play { min-width: 84px; font-weight: 650; color: #fff; background: var(--flow); }
 .stepper .play:hover:not(:disabled) { background: #0aa3b5; }
+
+/* vidro na tela inicial */
+.stats div, .tile:not(.tile-new) { background: var(--glass); backdrop-filter: blur(20px) saturate(1.6); border-color: var(--glass-border); box-shadow: var(--glass-shadow); }
+.tile-new { border-color: rgb(255 255 255 / .9); background: rgb(255 255 255 / .25); }
